@@ -8,51 +8,78 @@
 </head>
 
 <style>
+    /* 重置默认样式 */
     * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
-        -webkit-tap-highlight-color: transparent;
     }
 
     body {
-        background: linear-gradient(145deg, rgb(230, 234, 249) 0%, #edf5ff 100%);
-        min-height: 100vh;
+        /* 背景颜色 */
+        background: rgb(230, 234, 249);
+        min-height: 100%;
+        /* flex布局 */
         display: flex;
+        /* 垂直居中 */
         align-items: center;
+        /* 水平居中 */
         justify-content: center;
-        padding: 3vw;
+        /* 内边距 */
+        padding: 5%;
+        /* 字体 默认值 */
         font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     }
 
+    /* 输入框上方标签 */
     .inputBar span {
+        /* 提升为块级元素，独占一行 */
         display: block;
+        /* 居中 */
         align-items: center;
         flex-wrap: wrap;
-        margin-top: 3.5vw;
-        border: 0.2vw solid transparent;
+        /* 上边距，这样可以紧挨着下方的输入框而远离上方的输入框 */
+        margin-top: 3%;
+        /* 无边框 */
+        border: transparent;
+        /* 加粗 */
         font: bold;
-        font-size: 1.5vw;
+        /* 字体大小 */
+        font-size: 15px;
     }
 
     .inputBar input {
+        /* 上 外边距 */
+        margin-top: 3px;
+        /* 边框灰 */
         border: solid gray;
+        /* 透明背景 */
         background: transparent;
-        padding: 2vw 1.5vw;
-        font-size: 2.5vw;
+        /* 内边距 */
+        padding: 20px 15px;
+        /* 字体大小 */
+        font-size: 25px;
+        /* 颜色 */
         color: #222e41;
+        /* 属性变化时 在0.2秒内平滑过渡 */
         transition: all 0.2s;
+        /* 圆角设置，左上尖，其余三个圆 */
         border-radius: 0px 15px 15px 15px;
+        /* 宽度 */
     }
 
     .addBtn {
-        pointer-events: auto;
-        margin-top: 5vh;
-        /* border: solid rgb(84, 84, 84); */
+        /* 上 外边距 */
+        margin-top: 40px;
+        /* flex布局 暂时没什么作用 */
         display: flex;
+        /* 文本水平居中 */
         justify-content: center;
-        padding: 2vw;
-        width: 33.7vw;
+        /* 内边距 */
+        padding: 5%;
+        /* 宽度：视口宽度的33% */
+        width: 33vw;
+        /* 圆角 */
         border-radius: 20px;
     }
 </style>
@@ -70,28 +97,35 @@
             <span>title</span>
             <input type="text" id="tle" placeholder="标题">
         </div>
+
         <div class="inputBar">
             <span>description</span>
             <input type="text" id="des" placeholder="描述">
         </div>
+
         <div class="inputBar">
             <span>priority</span>
             <input type="text" id="pri" placeholder="优先级">
         </div>
+
         <div class="inputBar">
             <span>time</span>
             <input type="text" size="4" id="stYear" placeholder="年">
             <input type="text" size="4" id="stMon" placeholder="月">
             <input type="text" size="4" id="stDay" placeholder="日">
+
             <span style="text-align: center;width: 50px;margin-top: 0vw;">-</span>
+
             <input type="text" size="4" id="edYear" placeholder="年">
             <input type="text" size="4" id="edMon" placeholder="月">
             <input type="text" size="4" id="edDay" placeholder="日">
         </div>
+
         <div class="inputBar">
             <span>type</span>
-            <input type="text" placeholder="分类">
+            <input type="text" id="type" placeholder="分类">
         </div>
+
         <div>
             <button class='addBtn' onclick="addTask()">ADD</button>
         </div>
@@ -99,18 +133,19 @@
 </body>
 
 <script>
+    // 调试 收集所有数据 在控制台打印
     function addTask() {
         const data = {
             title: document.getElementById('tle').value,
-            description: document.getElementById('tle').value,
-            priority: document.getElementById('tle').value,
-            stYear: document.getElementById('tle').value,
-            stMon: document.getElementById('tle').value,
-            stDay: document.getElementById('tle').value,
-            edYear: document.getElementById('tle').value,
-            edMon: document.getElementById('tle').value,
-            edDay: document.getElementById('tle').value,
-            type: document.getElementById('tle').value
+            description: document.getElementById('des').value,
+            priority: document.getElementById('pri').value,
+            stYear: document.getElementById('stYear').value,
+            stMon: document.getElementById('stMon').value,
+            stDay: document.getElementById('stDay').value,
+            edYear: document.getElementById('edYear').value,
+            edMon: document.getElementById('edMon').value,
+            edDay: document.getElementById('edDay').value,
+            type: document.getElementById('type').value
         }
 
         console.log('taskdata', data);
