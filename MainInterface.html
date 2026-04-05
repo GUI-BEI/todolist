@@ -7,36 +7,61 @@
     <style>
         /*头部块，内涵.week-date-tools块*/
         .func-header {
+            width: 100%;
+            box-sizing: border-box;
+            height: 60px;
             background-color: #f0f0f0;
             padding: 10px;
             border-radius: 8px;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
         }
         /*头部内的工具块，包含周数、日期和工具图标*/
-        .func-header .week-date-tools {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: aqua;
-            margin-bottom: 10px;
-            border-radius: 8px;
-        }
         /*周数显示样式*/
-        .func-header .week-date-tools .week {
+        .func-header .week {/*左贴紧*/
+            justify-self: start;
+            grid-column: 1;
             font-weight: bold;
         }
         /*日期显示样式*/
-        .func-header .week-date-tools .full-date {
+        .func-header .full-date {/*居中*/
+            justify-self: center;
+            grid-column: 2;
             font-size: 18px;
         }
         /*工具图标样式*/
-        .func-header .week-date-tools .tools span {
-            margin-left: 10px;
+        .func-header .tools{/*右flex布局*/
+            justify-self:right;
+            display: flex;
+            grid-column: 3;
+            gap: 3px;
+        }
+        .func-header .tools .btn{
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;          /* 圆形 */
+            background-color: #f0f0f0;   /* 鲜艳底色 */
+            color: rgb(0, 0, 0);
+            font-size: 18px;
+            font-weight: bold;
+            display: inline-flex;/*文字居中*/
+            align-items: center;
+            justify-content: center;
+            border: 3px solid rgb(63, 63, 63);
+            cursor: pointer;
+            transition: opacity 0.2s ease, transform 0.1s ease;  /* 过渡效果 */
+            outline: none;               /* 去掉默认焦点轮廓 */
+        }
+        .func-header .tools .btn:active{
+            opacity: 0.6;               /* 透明度降低，看起来变淡 */
+            transform: scale(0.98);     /* 轻微缩小，增强按压感 */
         }
         /*中部块，内涵.calendar块,.schedule-list块*/
         .func-body {
             width: 100%;
             height: 400px; /*示例高度*/
-            background-color: #bdacac;
+            background-color: rgb(46,89,167);
             border-radius: 8px;
             position: relative;
         }
@@ -44,19 +69,20 @@
         .func-body .schedule-list {
             /*日程列表样式*/
             width: 100%;
-            height: 60%;
-            background-color: red;
+            height: 80%;
+            background-color: #ffffff;
+            background-image: url(17754068327512c7f6b870d76ea31f9c2f0b37c931503ce1c.jpg);
+            background-repeat: no-repeat;
+            background-size: cover;
             overflow-y: auto; /*内容过多时显示滚动条*/
             contain: layout paint;
             padding: 20px 0px;/*内边距,只垂直方向*/ 
             position: relative;
         }
-        
-
         /*日程项样式，内涵概要块和内容块*/
         .func-body .schedule-list .schedule-item {
             /*示例日程项样式*/
-            background-color: gold;
+            background-color: rgba(96, 181, 255, 0.5);
             height: 70px;
             width: 100%;
             /*日程项之间的间距*/
@@ -74,21 +100,21 @@
             width: 7%;
             height: 70%;
             border-radius: 6px;
-            background-color: green;
+            background-color: rgba(136,171,218, 0.7);
         }
         /*日程项内的内容块*/
         .func-body .schedule-list .schedule-item .schedule-content {
             width: 93%;
             height: 70%;  
             border-radius: 6px;  
-            background-color: blue;
+            background-color: rgba(111,148,205, 0.7);
         }
         /*日历条样式，内涵date-cell日期块*/
         .func-body .calendar {
             margin-left: 7%; /* 让日历条与竖线保持对齐 */
             width: 93%;
             height: 20%;
-            background-color: #f0f0f0;
+            background-color: rgb(89,118,186);
 
             /*子块排列方式*/
             display: flex;
@@ -97,7 +123,7 @@
         }
         /*每个日期块样式，含星期、日期和月份*/
         .func-body .calendar .date-cell {
-            background-color: #787070;
+            background-color: rgb(89,118,186);
             flex-basis: 13%;/*每个日期占一周的1/7*/
             text-align: center;
             padding: 10px;/*增加内边距，即日期之间的间距*/
@@ -111,14 +137,12 @@
 <body>
     <!--创建头部块，包含周数、日期和工具图标-->
     <header class="func-header">
-        <div class="week-date-tools">
-            <div class="week">📖 第X周 · 周Y</div>
-            <div class="full-date">2026/4/5</div>
-            <div class="tools">
-                <span>☰</span>
-                <span>🔔</span>
-            </div>
-        </div>
+            <span class="week" id="weekday"></span>
+            <span class="full-date" id="date"></span>
+            <span class="tools">
+                <span class="btn" id="add">+</span>
+                <span class="btn" id="more">...</span>
+            </span>
     </header>
     <!--*创建中部块，包含日历条和日程列表-->
     <div class="func-body">
@@ -192,5 +216,21 @@
             </div>
         </div>
     </div>
+    <script>
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');  // 月从0开始
+        const day = String(today.getDate()).padStart(2, '0');
+        const weekdays =  ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+        const weekday = weekdays[today.getDay()];
+        const formatted = `${year}-${month}-${day}`;
+        document.getElementById('weekday').innerText = weekday;
+        document.getElementById('date').innerText =formatted;
+
+        document.getElementById('add').onclick = function() {
+            window.location.href = 'addTask.html';
+        }
+
+    </script>
 </body>
 </html>
