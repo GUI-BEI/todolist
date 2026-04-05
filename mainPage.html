@@ -4,8 +4,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>时间管理系统</title>
+    <style>
+    .circle-btn {/*功能按钮样式*/
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;          /* 圆形 */
+            background-color: rgb(255, 255, 255);   /* 底色 */
+            color: black;
+            font-size: 18px;
+            font-weight: bold;
+            border: 1px solid black;
+            cursor: pointer;
+            transition: opacity 0.2s ease, transform 0.1s ease;  /* 过渡效果 */
+            outline: black;  
+        }
+    .circle-btn:active {/*按钮点击动效*/
+            opacity: 0.6;               /* 透明度降低，看起来变淡 */
+            transform: scale(0.98);     /* 轻微缩小，增强按压感 */
+        }
+    .todolistBckground {
+            background-color: black;/*可以自定义颜色*/
+            background-image: none;/*定制化图片*/
+            background-repeat: no-repeat;
+            background-size: cover;
+    }
+</style>
 </head>
+
 <body>
-    
+    <p>
+        导航栏，左侧显示当前日期，右端应该有功能按钮
+        <button class="circle-btn">+</button>
+        <button class="circle-btn">···</button>
+    </p>
+    <hr>
+    <p>
+        星期、日期栏，应当显示周数或者天数，最左侧一格空出，于下方最左侧事务简称宽度一致
+    </p>
+    <hr>
+    <P>
+        这里是事务栏，一行中事务以长方块形式横着，背景是表格，示例如下（具体样式用css实现，边框要是单线，内容是空的，每行颜色根据事务改变）<br>
+        需要注意，这个是可以上下滑动的东西，滑动这里的时候，其他栏固定
+    </P>
+
+    <hr>
+
 </body>
 </html>
