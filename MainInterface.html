@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日程管理系统</title>
+    <style>
+        /*头部块，内涵.week-date-tools块*/
+        .func-header {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        /*头部内的工具块，包含周数、日期和工具图标*/
+        .func-header .week-date-tools {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: aqua;
+            margin-bottom: 10px;
+            border-radius: 8px;
+        }
+        /*周数显示样式*/
+        .func-header .week-date-tools .week {
+            font-weight: bold;
+        }
+        /*日期显示样式*/
+        .func-header .week-date-tools .full-date {
+            font-size: 18px;
+        }
+        /*工具图标样式*/
+        .func-header .week-date-tools .tools span {
+            margin-left: 10px;
+        }
+        /*中部块，内涵.calendar块,.schedule-list块*/
+        .func-body {
+            width: 100%;
+            height: 400px; /*示例高度*/
+            background-color: #bdacac;
+            border-radius: 8px;
+            position: relative;
+        }
+        /*日程列表块样式，内涵.schedule-item日程项块*/
+        .func-body .schedule-list {
+            /*日程列表样式*/
+            width: 100%;
+            height: 60%;
+            background-color: red;
+            overflow-y: auto; /*内容过多时显示滚动条*/
+            contain: layout paint;
+            padding: 20px 0px;/*内边距,只垂直方向*/ 
+            position: relative;
+        }
+        
+
+        /*日程项样式，内涵概要块和内容块*/
+        .func-body .schedule-list .schedule-item {
+            /*示例日程项样式*/
+            background-color: gold;
+            height: 70px;
+            width: 100%;
+            /*日程项之间的间距*/
+            margin-bottom: 5px;
+            border-radius: 6px;
+            /*概要块和内容块的水平排列*/
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+        /*日程项内的概要块*/
+        .func-body .schedule-list .schedule-item .schedule-summary {
+            width: 7%;
+            height: 70%;
+            border-radius: 6px;
+            background-color: green;
+        }
+        /*日程项内的内容块*/
+        .func-body .schedule-list .schedule-item .schedule-content {
+            width: 93%;
+            height: 70%;  
+            border-radius: 6px;  
+            background-color: blue;
+        }
+        /*日历条样式，内涵date-cell日期块*/
+        .func-body .calendar {
+            margin-left: 7%; /* 让日历条与竖线保持对齐 */
+            width: 93%;
+            height: 20%;
+            background-color: #f0f0f0;
+
+            /*子块排列方式*/
+            display: flex;
+            flex-direction: row;/*让日期横向排列*/
+            justify-content: space-between;/*日期之间平均分布*/
+        }
+        /*每个日期块样式，含星期、日期和月份*/
+        .func-body .calendar .date-cell {
+            background-color: #787070;
+            flex-basis: 13%;/*每个日期占一周的1/7*/
+            text-align: center;
+            padding: 10px;/*增加内边距，即日期之间的间距*/
+            display: flex;
+            flex-direction: column;/*让星期、日期和月份垂直排列*/
+            border-left: 1px solid #ccc;/*日期之间的分隔线*/
+        }
+        
+    </style>
+</head>
+<body>
+    <!--创建头部块，包含周数、日期和工具图标-->
+    <header class="func-header">
+        <div class="week-date-tools">
+            <div class="week">📖 第X周 · 周Y</div>
+            <div class="full-date">2026/4/5</div>
+            <div class="tools">
+                <span>☰</span>
+                <span>🔔</span>
+            </div>
+        </div>
+    </header>
+    <!--*创建中部块，包含日历条和日程列表-->
+    <div class="func-body">
+        <!--日历条，包含日期块-->
+        <div class="calendar">
+            <!--每个日期块包含星期、日期和月份-->
+            <div class="date-cell">
+                <span class="weekday">一</span>
+                <span class="day-num">day</span>
+                <span class="month">3月</span>
+            </div>
+            <div class="date-cell">
+                <span class="weekday">二</span>
+                <span class="day-num">day</span>
+                <span class="month">3月</span>
+            </div>
+            <div class="date-cell">
+                <span class="weekday">三</span>
+                <span class="day-num">day</span>
+                <span class="month">4月</span>
+            </div>
+            <div class="date-cell">
+                <span class="weekday">四</span>
+                <span class="day-num">day</span>
+                <span class="month">4月</span>
+            </div>
+            <div class="date-cell">
+                <span class="weekday">五</span>
+                <span class="day-num">day</span>
+                <span class="month">4月</span>
+            </div>
+            <div class="date-cell">
+                <span class="weekday">六</span>
+                <span class="day-num">day</span>
+                <span class="month">4月</span>
+            </div>
+            <div class="date-cell">
+                <span class="weekday">日</span>
+                <span class="day-num">day</span>
+                <span class="month">4月</span>
+            </div>
+        </div>
+        <!--日程列表，包含多个日程项-->
+        <div class="schedule-list">
+            <!--每个日程项包含概要块和内容块-->
+            <div class="schedule-item">
+                <!--概要块-->
+                <div class="schedule-summary">概要——会议</div>
+                <!--内容块-->
+                <div class="schedule-content">会议</div>
+            </div>
+            <div class="schedule-item">
+                <div class="schedule-summary">概要——上课</div>
+                <div class="schedule-content">上课</div>
+            </div>
+            <div class="schedule-item">
+                <div class="schedule-summary">概要——上课</div>
+                <div class="schedule-content">上课</div>
+            </div>
+            <div class="schedule-item">
+                <div class="schedule-summary">概要——上课</div>
+                <div class="schedule-content">上课</div>
+            </div>
+            <div class="schedule-item">
+                <div class="schedule-summary">概要——上课</div>
+                <div class="schedule-content">上课</div>
+            </div>
+            <div class="schedule-item">
+                <div class="schedule-summary">概要——上课</div>
+                <div class="schedule-content">上课</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
