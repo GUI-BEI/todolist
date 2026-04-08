@@ -68,6 +68,33 @@
         /* 宽度 */
     }
 
+    #pri {
+        /* 提升为块级元素 */
+        display: block;
+        /* 宽度  父类的100% */
+        width: 100%;
+        /* 高度 视口高度的5% */
+        height: 5vh;
+        /* 上下外边距 */
+        margin-top: 4%;
+        margin-bottom: 10%;
+        /* 背景颜色 比大的背景稍白一点 */
+        background-color: rgb(240, 242, 249);
+        /* 圆角 */
+        border-radius: 0px 15px 15px 15px;
+        /* 文本居中 */
+        text-align-last: center;
+    }
+
+    input[type="date"] {
+        /* 字体大小 */
+        font-size: 100%;
+        /* 粗体 */
+        font: bold;
+        /* 继承页面字体 */
+        font-family: inherit;
+    }
+
     .addBtn {
         /* 上 外边距 */
         margin-top: 40px;
@@ -78,7 +105,7 @@
         /* 内边距 */
         padding: 5%;
         /* 宽度：视口宽度的33% */
-        width: 33vw;
+        width: 100%;
         /* 圆角 */
         border-radius: 20px;
     }
@@ -105,15 +132,16 @@
 
         <div class="inputBar">
             <span>priority</span>
-            <input type="text" id="pri" placeholder="优先级">
+            <select id="pri">
+                <option value="3">高</option>
+                <option value="2">中</option>
+                <option value="1">低</option>
         </div>
 
         <div class="inputBar">
             <span>time</span>
             <input id="stTime" type="date">
-
-            <span style="text-align: center;width: 50px;margin-top: 0vw;">-</span>
-
+            <span style="text-align: center;width: 50px;margin-top: 0vw;">—</span>
             <input id="edTime" type="date">
         </div>
 
@@ -130,7 +158,7 @@
 
 <script>
     class EventItem {
-        constructor(title, description, priority, start, end, completed = false) {
+        constructor(title, description = '', priority = 3, start, end, completed = false) {
             // 生成一个唯一ID
             this.id = Date.now() + Math.floor(Math.random() * 1000);
 
@@ -178,6 +206,12 @@
         }
     }
 
+    // 数值合理性检验 标题 起止时间不能为空
+    // EventItem的priority默认值是3，description默认值是'',completed默认值是false
+    if(!data.title||data.title()==='') {alert('标题不能为空'); return;}
+    if(!data.stTime||data.stTime()==='') {alert('开始时间不能为空'); return;}
+    if(!data.edTime||data.edTime()==='') {alert('结束时间不能为空'); return;}
+
     // 存储数据
     function saveEvents(events) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
@@ -203,14 +237,15 @@
             data.type
         );
 
+
         saveEvents(task);
 
         console.log('taskdata', data);
         console.log('tile', data.title);
         console.log('description', data.description);
         console.log('priority', data.priority);
-        console.log('startTime', data.stYear, ' ', data.stMon, ' ', data.stDay);
-        console.log('endtime', data.edYear, ' ', data.edMon, ' ', data.edDay);
+        console.log('startTime', data.stTime);
+        console.log('endtime', data.edTime);
         console.log('type', data.type);
     }
 
