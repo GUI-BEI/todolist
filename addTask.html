@@ -109,11 +109,45 @@
         /* 圆角 */
         border-radius: 20px;
     }
+
+    .return {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        /* 圆形 */
+        background-color: #f0f0f0;
+        /* 鲜艳底色 */
+        color: rgb(0, 0, 0);
+        font-size: 18px;
+        font-weight: bold;
+        display: inline-flex;
+        /*文字居中*/
+        align-items: center;
+        justify-content: center;
+        border: 3px solid rgb(63, 63, 63);
+        cursor: pointer;
+        transition: opacity 0.2s ease, transform 0.1s ease;
+        /* 过渡效果 */
+        outline: none;
+        /* 去掉默认焦点轮廓 */
+
+        /* 永远显示在屏幕的左上角 */
+        position: fixed;
+        top: 5vh;
+        left: 5vw;
+    }
 </style>
 
 <body>
 
     <ul>
+        <div>
+            <a href="MainInterface.html">
+                <button class="return">
+                    < </button>
+            </a>
+        </div>
+
         <div>
             <h3>
                 添加新任务
@@ -206,12 +240,6 @@
         }
     }
 
-    // 数值合理性检验 标题 起止时间不能为空
-    // EventItem的priority默认值是3，description默认值是'',completed默认值是false
-    if(!data.title||data.title()==='') {alert('标题不能为空'); return;}
-    if(!data.stTime||data.stTime()==='') {alert('开始时间不能为空'); return;}
-    if(!data.edTime||data.edTime()==='') {alert('结束时间不能为空'); return;}
-
     // 存储数据
     function saveEvents(events) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
@@ -238,8 +266,16 @@
         );
 
 
+        // 数值合理性检验 标题 起止时间不能为空
+        // EventItem的priority默认值是3，description默认值是'',completed默认值是false
+        if (!data.title || data.title() === '') { alert('标题不能为空'); return; }
+        if (!data.stTime || data.stTime() === '') { alert('开始时间不能为空'); return; }
+        if (!data.edTime || data.edTime() === '') { alert('结束时间不能为空'); return; }
+
+        // 保存数据
         saveEvents(task);
 
+        // 控制台打印
         console.log('taskdata', data);
         console.log('tile', data.title);
         console.log('description', data.description);
