@@ -110,15 +110,11 @@
 
         <div class="inputBar">
             <span>time</span>
-            <input type="text" size="4" id="stYear" placeholder="年">
-            <input type="text" size="4" id="stMon" placeholder="月">
-            <input type="text" size="4" id="stDay" placeholder="日">
+            <input id="stTime" type="date">
 
             <span style="text-align: center;width: 50px;margin-top: 0vw;">-</span>
 
-            <input type="text" size="4" id="edYear" placeholder="年">
-            <input type="text" size="4" id="edMon" placeholder="月">
-            <input type="text" size="4" id="edDay" placeholder="日">
+            <input id="edTime" type="date">
         </div>
 
         <div class="inputBar">
@@ -133,20 +129,81 @@
 </body>
 
 <script>
-    // 调试 收集所有数据 在控制台打印
+    class EventItem {
+        constructor(title, description, priority, start, end, completed = false) {
+            // 生成一个唯一ID
+            this.id = Date.now() + Math.floor(Math.random() * 1000);
+
+            //  其他数据初始化
+            this.title = title;
+            this.description = description;
+            this.priority = priority;
+            this.start = start;
+            this.end = end;
+            this.completed = completed;
+        }
+
+        Complete() {
+            this.completed = true;
+        }
+
+        Uncomplete() {
+            this.completed = false;
+        }
+    }
+
+    // 本地存储实现
+    const STORAGE_KEY = 'events';
+
+    // 读取数据
+    function loadEvents() {
+        const Data = localStorage.getItem(STORAGE_KEY);
+        if (!Data) return [];
+
+        try {
+            // JSON parse得到的是普通Object
+            const parseArray = JSON.parse(Data);
+            // 还原为Event对象
+            return parseArray.map(item => {
+                item.title;
+                item.description;
+                item.priority;
+                item.start;
+                item.end;
+                item.completed;
+            });
+        } catch (e) {
+            console.error('读取存储失败', e);
+            return [];
+        }
+    }
+
+    // 存储数据
+    function saveEvents(events) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+    }
+
+    // 收集所有数据 在控制台打印
     function addTask() {
-        const data = {
+        data = {
             title: document.getElementById('tle').value,
             description: document.getElementById('des').value,
             priority: document.getElementById('pri').value,
-            stYear: document.getElementById('stYear').value,
-            stMon: document.getElementById('stMon').value,
-            stDay: document.getElementById('stDay').value,
-            edYear: document.getElementById('edYear').value,
-            edMon: document.getElementById('edMon').value,
-            edDay: document.getElementById('edDay').value,
+            stTime: document.getElementById('stTime').value,
+            edTime: document.getElementById('edTime').value,
             type: document.getElementById('type').value
         }
+
+        let task = new EventItem(
+            data.title,
+            data.description,
+            data.priority,
+            data.stTime,
+            data.edTime,
+            data.type
+        );
+
+        saveEvents(task);
 
         console.log('taskdata', data);
         console.log('tile', data.title);
