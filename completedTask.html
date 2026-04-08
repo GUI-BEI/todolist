@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>completedTask</title>
+</head>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        /* 背景颜色 */
+        background: rgb(230, 234, 249);
+        min-height: 100%;
+        /* flex布局 */
+        display: flex;
+        /* 左对齐 */
+        justify-content: left;
+        /* 内边距 */
+        padding: 5%;
+        /* 字体 默认值 */
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+
+    .filterBar {
+        display: block;
+    }
+
+    .filterBar .filter {
+        /* 上 外边距 */
+        margin-top: 3px;
+        /* 透明背景 */
+        background: transparent;
+        /* 内边距 */
+        padding: 2px 10px;
+        /* 字体大小 */
+        font-size: 15px;
+        /* 颜色 */
+        background-color: rgb(203, 211, 231);
+        /* 属性变化时 在0.2秒内平滑过渡 */
+        transition: all 0.2s;
+        /* 圆角设置，左上尖，其余三个圆 */
+        border-radius: 15px;
+    }
+</style>
+
+<body>
+    <ul>
+        <h3>已完成事项</h3>
+        <br>
+        <div class="filterBar">
+            <span>筛选</span>
+            <button class="filter">所有</button>
+            <button class="filter">已完成</button>
+            <button class="filter">未完成</button>
+            <button class="filter">高优先级</button>
+            <button class="filter">中优先级</button>
+            <button class="filter">低优先级</button>
+        </div>
+
+        <!-- 定义卡片模板 -->
+        <template id="taskCard">
+            <div class="Card">
+                <h4 class="taskTitle"></h4>
+                <p class="taskDescription"></p>
+                <p class="'taskPriority"></p>
+                <div class="taskTime">
+                    <span class="taskStart"></span>
+                    <span>-</span>
+                    <span class="taskEnd"></span>
+                </div>
+                <p class="taskAction"></p>
+            </div>
+        </template>
+
+        <div id="taskList"></div>
+    </ul>
+</body>
+
+<script>
+    class EventItem {
+        constructor(title, description = '', priority = 3, start, end, completed = false) {
+            // 生成一个唯一ID
+            this.id = Date.now() + Math.floor(Math.random() * 1000);
+
+            //  其他数据初始化
+            this.title = title;
+            this.description = description;
+            this.priority = priority;
+            this.start = start;
+            this.end = end;
+            this.completed = completed;
+        }
+
+        Complete() {
+            this.completed = true;
+        }
+
+        Uncomplete() {
+            this.completed = false;
+        }
+    }
+
+    // 读取数据
+    STORAGE_KEY = 'events';
+    let tasks = [];
+    let currentFilter = 'all';
+
+    function loadEvents() {
+        const Data = localStorage.getItem(STORAGE_KEY);
+        if (!Data) return [];
+
+        try {
+            // JSON parse得到的是普通Object
+            const parseArray = JSON.parse(Data);
+            // 还原为Event对象
+            return parseArray.map(item => {
+                item.title;
+                item.description;
+                item.priority;
+                item.start;
+                item.end;
+                item.completed;
+            });
+        } catch (e) {
+            console.error('读取存储失败', e);
+            return [];
+        }
+    }
+
+    // 根据不同的筛选方案，加载数据并渲染
+
+    function setAll() {
+        currentFilter = 'all';
+        renderTaskList(getTasks());
+    }
+
+    function setCompleted() {
+        currentFilter = 'unCompleted';
+        renderTaskList(getTasks());
+    }
+
+    function setUncompleted() {
+        currentFilter = 'completed';
+        renderTaskList(getTasks());
+    }
+
+    function setHigh() {
+        currentFilter = 'high';
+        renderTaskList(getTasks());
+    }
+
+    function setMedium() {
+        currentFilter = 'Medium';
+        renderTaskList(getTasks());
+    }
+
+    function setLow() {
+        currentFilter = 'low';
+        renderTaskList(getTasks());
+    }
+
+
+    // 过滤器
+    function getTasks() {
+        switch (currentFilter) {
+            case 'unCompleted':
+                return tasks.filter(t => !t.completed);
+            case 'completed':
+                return task.filter(t => t.completed);
+            case 'high':
+                return task.filter(t => t.priority === 3);
+            case 'medium':
+                return task.filter(t => t.priority === 2);
+            case 'low':
+                return task.filter(t => t.priority === 1);
+            default:
+                return tasks;
+        }
+    }
+
+    // 渲染任务列表
+    function render() {
+        tasks = loadEvents();
+        const filteredTasks = getTasks();
+
+        // 渲染到列表
+    }
+
+    function renderTaskList(taskArray) {
+        // 获取容器以及模板
+        const container = document.getElementById('taskList');
+        const template = document.getElementById('taskCard');
+
+        // 任务列表为空，显示暂无任务
+        if (taskArray.length === 0) {
+            container.innerHTML = `
+                <div>
+                    <h3>暂无任务<\h3>
+                </div>
+            `;
+            return;
+        }
+
+        // 按截止时间从早到晚排序
+        const sorted = taskArray.sort((a, b) => new Date(a.end) - new Date(b.end));
+
+        // 清空taskList容器
+        container.innerHTML = '';
+
+        // 循环填充数据到taskCard模板并append到taskList容器
+        sorted.forEach(task => {
+            const clone = template.content.cloneNode(true);
+            const card = clone.querySelector('.Card');
+
+            // 填充数据
+            card.querySelector('.taskTitle').textContent = task.title;
+            card.querySelector('.taskDescription').textContent = task.description;
+            card.querySelector('.taskPriority').textContent = task.priority;
+            card.querySelector('.taskStart').textContent = task.start;
+            card.querySelector('.taskEnd').textContent = task.end;
+            card.querySelector('.taskAction').textContent = task.completed;
+
+            container.appendChild(card);
+        });
+    }
+
+</script>
+
+</html>
