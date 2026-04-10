@@ -191,6 +191,7 @@
         const filteredTasks = getTasks();
 
         // 渲染到列表
+        renderTaskList(filteredTasks);
     }
 
     function renderTaskList(taskArray) {
@@ -222,13 +223,22 @@
             // 填充数据
             card.querySelector('.taskTitle').textContent = task.title;
             card.querySelector('.taskDescription').textContent = task.description;
-            card.querySelector('.taskPriority').textContent = task.priority;
+
+            const prorityText = { 1: '低', 2: '中', 3: '高' }[task.priority];
+            card.querySelector('.taskPriority').textContent = task.prorityText;
+
             card.querySelector('.taskStart').textContent = task.start;
             card.querySelector('.taskEnd').textContent = task.end;
             card.querySelector('.taskAction').textContent = task.completed;
 
             container.appendChild(card);
         });
+    }
+
+    function formatDate(isoString) {
+        if (!isoString) return '未设置';
+        const date = new Date(isoString);
+        return `${date.getYear()}/${date.getMonth()}/${date.getDate()}`;
     }
 
 </script>
