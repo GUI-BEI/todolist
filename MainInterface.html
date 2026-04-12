@@ -194,55 +194,7 @@
                 <div class="schedule-summary">概要——会议</div>
                 <!--内容块-->
                 <div class="schedule-content">会议</div>
-            </div>
-            <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
-                <div class="schedule-content">上课</div>
-            </div>
-            <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
-                <div class="schedule-content">上课</div>
-            </div>
-            <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
-                <div class="schedule-content">上课</div>
-            </div>
-            <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
-                <div class="schedule-content">上课</div>
-            </div>
-            <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
-                <div class="schedule-content">上课</div>
-            </div>
-             <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
-                <div class="schedule-content">上课</div>
-            </div>
-             <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
-                <div class="schedule-content">上课</div>
-            </div>
-             <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
-                <div class="schedule-content">上课</div>
             </div> 
-            <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
-                <div class="schedule-content">上课</div>
-            </div>
-             <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
-                <div class="schedule-content">上课</div>
-            </div>
-             <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
-                <div class="schedule-content">上课</div>
-            </div>
-             <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
-                <div class="schedule-content">上课</div>
-            </div>
         </div>
     </div>
     <script>
@@ -262,6 +214,30 @@
         document.getElementById('search').onclick = function() {
             window.location.href = 'completedTask.html';
         }
+    </script>
+    <script>
+        let tasks = [];
+        //页面加载完成后获取任务列表
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchTasks();
+        });
+        //从后端获取任务列表的函数
+        function fetchTasks() {
+            fetch('http://localhost:8080/api/getTasks')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.code === 200) {
+                        console.log('message:', data.message);
+                        console.log('任务列表:', data.data);
+                        tasks = data.data;
+                        // 在这里可以将获取到的任务列表渲染到页面上
+                    } else {
+                        console.error('获取任务列表失败:', data.message);
+                    }
+                })
+                .catch(error => console.error('请求错误:', error));
+        }
+        
     </script>
 </body>
 </html>

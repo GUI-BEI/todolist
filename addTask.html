@@ -183,7 +183,7 @@
 
 <script>
     class EventItem {
-        constructor(title, description = '', priority = 3, start, end, completed = false) {
+        constructor(title, description = '', priority = 3, start, end,type, completed = false) {
             // 生成一个唯一ID
             this.id = Date.now() + Math.floor(Math.random() * 1000);
 
@@ -193,6 +193,7 @@
             this.priority = priority;
             this.start = start;
             this.end = end;
+            this.type = type;
             this.completed = completed;
         }
 
@@ -259,9 +260,9 @@
 
         // 数值合理性检验 标题 起止时间不能为空
         // EventItem的priority默认值是3，description默认值是'',completed默认值是false
-        if (!data.title || data.title() === '') { alert('标题不能为空'); return; }
-        if (!data.stTime || data.stTime() === '') { alert('开始时间不能为空'); return; }
-        if (!data.edTime || data.edTime() === '') { alert('结束时间不能为空'); return; }
+        if (!data.title || data.title === '') { alert('标题不能为空'); return; }
+        if (!data.stTime || data.stTime === '') { alert('开始时间不能为空'); return; }
+        if (!data.edTime || data.edTime === '') { alert('结束时间不能为空'); return; }
 
         // 保存数据
         saveEvents(task);
@@ -274,6 +275,26 @@
         console.log('startTime', data.stTime);
         console.log('endtime', data.edTime);
         console.log('type', data.type);
+
+        //与后端连接
+        fetch('http://localhost:8080/api/addTask', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(task)
+        }).then(response => response.json())
+        .then(result => {
+                console.log('Success:', result);
+                console.log('code:', result.code);
+                console.log('message:', result.message);  
+                window.location.href = 'MainInterface.html';  
+                // 可以在这里处理后端返回的数据，例如显示成功消息
+        })
+        .catch(error => {
+                console.error('Error:', error);
+                // 可以在这里处理错误，例如显示错误消息
+        });
     }
 
 </script>
