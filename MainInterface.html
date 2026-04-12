@@ -141,6 +141,7 @@
             <span class="full-date" id="date"></span>
             <span class="tools">
                 <span class="btn" id="add">+</span>
+                <span class="btn" id="search">?</span>
                 <span class="btn" id="more">...</span>
             </span>
     </header>
@@ -209,6 +210,9 @@
 
         document.getElementById('add').onclick = function() {
             window.location.href = 'addTask.html';
+        }
+        document.getElementById('search').onclick = function() {
+            window.location.href = 'completedTask.html';
         }
     </script>
     <script>
