@@ -75,6 +75,7 @@
             background-repeat: no-repeat;
             background-size: cover;
             overflow-y: auto; /*内容过多时显示滚动条*/
+            scrollbar-width: none;/*滚动条隐藏保持美观*/
             contain: layout paint;
             padding: 20px 0px;/*内边距,只垂直方向*/ 
             position: relative;
@@ -88,31 +89,21 @@
             /*日程项之间的间距*/
             margin-bottom: 5px;
             border-radius: 6px;
-            /*概要块和内容块的水平排列*/
+            /*内容块的水平排列*/
             display: flex;
-            flex-direction: row;
             align-items: center;
-            justify-content: space-between;
-            position: relative;
         }
-        /*日程项内的概要块*/
-        .func-body .schedule-list .schedule-item .schedule-summary {
-            width: 7%;
-            height: 70%;
-            border-radius: 6px;
-            background-color: rgba(136,171,218, 0.7);
-        }
+
         /*日程项内的内容块*/
         .func-body .schedule-list .schedule-item .schedule-content {
-            width: 93%;
+            width: 100%;
             height: 70%;  
             border-radius: 6px;  
             background-color: rgba(111,148,205, 0.7);
         }
         /*日历条样式，内涵date-cell日期块*/
         .func-body .calendar {
-            margin-left: 7%; /* 让日历条与竖线保持对齐 */
-            width: 93%;
+            width: 100%;
             height: 100px;
             background-color: rgb(89,118,186);
 
@@ -124,12 +115,16 @@
         /*每个日期块样式，含星期、日期和月份*/
         .func-body .calendar .date-cell {
             background-color: rgb(89,118,186);
-            flex-basis: 13%;/*每个日期占一周的1/7*/
+            flex-basis: 14%;/*每个日期占一周的1/7*/
             text-align: center;
-            padding: 10px;/*增加内边距，即日期之间的间距*/
+            padding: 0.33%;/*增加内边距，即日期之间的间距*/
             display: flex;
             flex-direction: column;/*让星期、日期和月份垂直排列*/
             border-left: 1px solid #ccc;/*日期之间的分隔线*/
+        }
+        .func-body .calendar .date-cell .today{
+            background-color: #f0f0f0;
+            border: 1px solid red;
         }
         
     </style>
@@ -152,7 +147,7 @@
             <div class="date-cell">
                 <span class="weekday">一</span>
                 <span class="day-num">day</span>
-                <span class="month">3月</span>
+                <span class="month" id="weekmonth1"></span>
             </div>
             <div class="date-cell">
                 <span class="weekday">二</span>
@@ -189,57 +184,43 @@
         <div class="schedule-list">
             <!--每个日程项包含概要块和内容块-->
             <div class="schedule-item">
-                <!--概要块-->
-                <div class="schedule-summary">概要——会议</div>
                 <!--内容块-->
                 <div class="schedule-content">会议</div>
             </div>
             <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
                 <div class="schedule-content">上课</div>
             </div>
             <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
                 <div class="schedule-content">上课</div>
             </div>
             <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
                 <div class="schedule-content">上课</div>
             </div>
             <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
                 <div class="schedule-content">上课</div>
             </div>
             <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
                 <div class="schedule-content">上课</div>
             </div>
              <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
                 <div class="schedule-content">上课</div>
             </div>
              <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
                 <div class="schedule-content">上课</div>
             </div>
              <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
                 <div class="schedule-content">上课</div>
             </div> 
             <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
                 <div class="schedule-content">上课</div>
             </div>
              <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
                 <div class="schedule-content">上课</div>
             </div>
              <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
                 <div class="schedule-content">上课</div>
             </div>
              <div class="schedule-item">
-                <div class="schedule-summary">概要——上课</div>
                 <div class="schedule-content">上课</div>
             </div>
         </div>
@@ -254,10 +235,28 @@
         const formatted = `${year}-${month}-${day}`;
         document.getElementById('weekday').innerText = weekday;
         document.getElementById('date').innerText =formatted;
+        
+        var weekdate =[];
+        let diff = today.getDay() == 0? -6 :1-today.getDay();
+        const firstDay =new Date(today);
+        firstDay.setDate(today.getDate()+diff);
+
+        for(let i=0;i<7;++i){
+            const day = new Date(firstDay);
+            day.setDate(firstDay.getDate()+i);
+            weekdate.push(day);
+        }
+
+        function formatDate(date){
+            const weekMonth =date.getMonth()+1;
+            const day =date.getDate();
+            return '${weekMonth}/${day}';
+        }
 
         document.getElementById('add').onclick = function() {
             window.location.href = 'addTask.html';
         }
+
 
     </script>
 </body>
