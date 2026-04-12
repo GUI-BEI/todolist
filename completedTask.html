@@ -19,7 +19,7 @@
         background: rgb(230, 234, 249);
         min-height: 100%;
         /* flex布局 */
-        display: flex;
+        display: column;
         /* 左对齐 */
         justify-content: left;
         /* 内边距 */
@@ -48,48 +48,124 @@
         /* 圆角设置，左上尖，其余三个圆 */
         border-radius: 15px;
     }
+
+    .return {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        /* 圆形 */
+        background-color: #f0f0f0;
+        /* 鲜艳底色 */
+        color: rgb(0, 0, 0);
+        font-size: 18px;
+        font-weight: bold;
+        display: flex;
+        /*文字居中*/
+        align-items: center;
+        justify-content: center;
+        border: 3px solid rgb(63, 63, 63);
+        cursor: pointer;
+        /* 过渡效果 */
+        transition: opacity 0.2s ease, transform 0.1s ease;
+        /* 去掉默认焦点轮廓 */
+        outline: none;
+    }
+
+    .Card {
+        background-color: white;
+        border-radius: 15px;
+        padding: 3%;
+        margin-top: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        transition: all 0.2s;
+    }
+
+    .Card:hover {
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+    }
+
+    .taskTitle {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .taskDescription {
+        color: rgb(69, 111, 157);
+        margin-bottom: 5px;
+        line-height: 1.5;
+    }
+
+    .taskPriority {
+        padding: 3px;
+        border-radius: 15px;
+        font-size: 15px;
+        font-weight: 550;
+        line-height: 1.5;
+    }
+
+    .taskTime {
+        display: flex;
+        align-items: center;
+        gap: 3%;
+        line-height: 1.5;
+    }
+
+    .taskAction {
+        font-weight: 600;
+        line-height: 1.5;
+    }
 </style>
 
 <body>
-    <ul>
-        <h3>已完成事项</h3>
-        <br>
-        <div class="filterBar">
-            <span>筛选</span>
-            <button class="filter">所有</button>
-            <button class="filter">已完成</button>
-            <button class="filter">未完成</button>
-            <button class="filter">高优先级</button>
-            <button class="filter">中优先级</button>
-            <button class="filter">低优先级</button>
-        </div>
 
-        <!-- 定义卡片模板 -->
-        <template id="taskCard">
-            <div class="Card">
-                <h4 class="taskTitle"></h4>
-                <p class="taskDescription"></p>
-                <p class="'taskPriority"></p>
-                <div class="taskTime">
-                    <span class="taskStart"></span>
-                    <span>-</span>
-                    <span class="taskEnd"></span>
-                </div>
-                <p class="taskAction"></p>
+    <div>
+        <a href="MainInterface.html" style="text-decoration: none; display: inline-block;">
+            <button class="return">
+                < </button>
+        </a>
+        <h3 style="display: inline-block;">已完成事项</h3>
+    </div>
+
+
+
+    <hr style="width: 100vw; margin-top: 2%; margin-bottom: 2%;">
+    <div class="filterBar">
+        <span style="display: block; margin-bottom: 2%;">筛选</span>
+        <button class="filter" id="all">所有</button>
+        <button class="filter" id="completed">已完成</button>
+        <button class="filter" id="unCompleted">未完成</button>
+        <button class="filter" id="high">高优先级</button>
+        <button class="filter" id="medium">中优先级</button>
+        <button class="filter" id="low">低优先级</button>
+    </div>
+
+    <!-- 定义卡片模板 -->
+    <template id="taskCard">
+        <div class="Card">
+            <h4 class="taskTitle"></h4>
+            <p class="taskDescription"></p>
+            <p class="taskPriority"></p>
+            <div class="taskTime">
+                <span class="taskStart"></span>
+                <span>-</span>
+                <span class="taskEnd"></span>
             </div>
-        </template>
+            <p class="taskAction"></p>
+        </div>
+    </template>
 
-        <div id="taskList"></div>
-    </ul>
+    <br>
+    <div id="taskList"></div>
+
 </body>
 
 <script>
+    // EventItem 类
     class EventItem {
         constructor(title, description = '', priority = 3, start, end, completed = false) {
-            // 生成一个唯一ID
             this.id = Date.now() + Math.floor(Math.random() * 1000);
-
-            //  其他数据初始化
             this.title = title;
             this.description = description;
             this.priority = priority;
@@ -97,149 +173,144 @@
             this.end = end;
             this.completed = completed;
         }
-
-        Complete() {
-            this.completed = true;
-        }
-
-        Uncomplete() {
-            this.completed = false;
-        }
     }
 
-    // 读取数据
-    STORAGE_KEY = 'events';
+    // 全局变量
+    const STORAGE_KEY = 'events';
     let tasks = [];
     let currentFilter = 'all';
 
+    // 读取数据
     function loadEvents() {
-        const Data = localStorage.getItem(STORAGE_KEY);
-        if (!Data) return [];
+        const data = localStorage.getItem(STORAGE_KEY);
+        if (!data) return [];
 
         try {
             // JSON parse得到的是普通Object
-            const parseArray = JSON.parse(Data);
-            // 还原为Event对象
-            return parseArray.map(item => {
-                item.title;
-                item.description;
-                item.priority;
-                item.start;
-                item.end;
-                item.completed;
+            // 判断parseArray是数组还是单个对象，如果是单个对象视作[parsed]
+            const parsed = JSON.parse(data);
+            const taskArray = Array.isArray(parsed) ? parsed : [parsed];
+
+            return taskArray.map(item => {
+                const task = new EventItem(
+                    item.title,
+                    item.description || '',
+                    item.priority,
+                    item.start,
+                    item.end,
+                    item.completed
+                );
+                task.id = item.id;
+                return task;
             });
         } catch (e) {
-            console.error('读取存储失败', e);
+            console.error('读取失败', e);
             return [];
         }
     }
 
-    // 根据不同的筛选方案，加载数据并渲染
-
-    function setAll() {
-        currentFilter = 'all';
-        renderTaskList(getTasks());
-    }
-
-    function setCompleted() {
-        currentFilter = 'unCompleted';
-        renderTaskList(getTasks());
-    }
-
-    function setUncompleted() {
-        currentFilter = 'completed';
-        renderTaskList(getTasks());
-    }
-
-    function setHigh() {
-        currentFilter = 'high';
-        renderTaskList(getTasks());
-    }
-
-    function setMedium() {
-        currentFilter = 'Medium';
-        renderTaskList(getTasks());
-    }
-
-    function setLow() {
-        currentFilter = 'low';
-        renderTaskList(getTasks());
-    }
-
-
-    // 过滤器
+    // 筛选
     function getTasks() {
         switch (currentFilter) {
-            case 'unCompleted':
-                return tasks.filter(t => !t.completed);
-            case 'completed':
-                return task.filter(t => t.completed);
-            case 'high':
-                return task.filter(t => t.priority === 3);
-            case 'medium':
-                return task.filter(t => t.priority === 2);
-            case 'low':
-                return task.filter(t => t.priority === 1);
-            default:
-                return tasks;
+            case 'unCompleted': return tasks.filter(t => !t.completed);
+            case 'completed': return tasks.filter(t => t.completed);
+            case 'high': return tasks.filter(t => t.priority == 3);
+            case 'medium': return tasks.filter(t => t.priority == 2);
+            case 'low': return tasks.filter(t => t.priority == 1);
+            default: return tasks;
         }
     }
 
-    // 渲染任务列表
+    // 渲染入口
     function render() {
         tasks = loadEvents();
         const filteredTasks = getTasks();
-
-        // 渲染到列表
         renderTaskList(filteredTasks);
     }
 
+    // 渲染任务列表
     function renderTaskList(taskArray) {
-        // 获取容器以及模板
         const container = document.getElementById('taskList');
         const template = document.getElementById('taskCard');
 
-        // 任务列表为空，显示暂无任务
-        if (taskArray.length === 0) {
+        if (!taskArray || taskArray.length === 0) {
             container.innerHTML = `
-                <div>
-                    <h3>暂无任务<\h3>
-                </div>
+            <div style="padding:40px;text-align:center;">
+                <h3>暂无任务</h3>
+            </div>
             `;
             return;
         }
 
         // 按截止时间从早到晚排序
-        const sorted = taskArray.sort((a, b) => new Date(a.end) - new Date(b.end));
-
-        // 清空taskList容器
+        const sorted = [...taskArray].sort((a, b) => new Date(a.end) - new Date(b.end));
         container.innerHTML = '';
 
-        // 循环填充数据到taskCard模板并append到taskList容器
+        // 循环填充
         sorted.forEach(task => {
             const clone = template.content.cloneNode(true);
             const card = clone.querySelector('.Card');
 
-            // 填充数据
             card.querySelector('.taskTitle').textContent = task.title;
-            card.querySelector('.taskDescription').textContent = task.description;
+            card.querySelector('.taskDescription').textContent = task.description || '暂无描述';
 
-            const prorityText = { 1: '低', 2: '中', 3: '高' }[task.priority];
-            card.querySelector('.taskPriority').textContent = task.prorityText;
+            const priorityMap = { 1: '🟢 低', 2: '🟡 中', 3: '🔴 高' };
+            card.querySelector('.taskPriority').textContent = `优先级：${priorityMap[task.priority]}` || '未设置';
 
             card.querySelector('.taskStart').textContent = task.start;
             card.querySelector('.taskEnd').textContent = task.end;
-            card.querySelector('.taskAction').textContent = task.completed;
+            card.querySelector('.taskAction').textContent = task.completed ? '已完成' : '进行中';
 
             container.appendChild(card);
         });
     }
 
-    function formatDate(isoString) {
-        if (!isoString) return '未设置';
-        const date = new Date(isoString);
-        return `${date.getYear()}/${date.getMonth()}/${date.getDate()}`;
+    // 初始化
+    function init() {
+        // 创建示例
+        const sample1 = new EventItem('完成项目报告', '数据分析', 3, '2026-04-08', '2026-04-10', false);
+        const sample2 = new EventItem('拼豆', '拼2778个豆', 2, '2026-04-12', '2026-04-15', true);
+        const sample3 = new EventItem('拼拼豆', '拼2778个豆', 1, '2026-04-12', '2026-04-14', true);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify([sample1, sample2, sample3]));
+
+
+        // 绑定筛选按钮
+        document.getElementById('all').addEventListener('click', () => {
+            currentFilter = 'all';
+            render();
+        });
+
+        document.getElementById('completed').addEventListener('click', () => {
+            currentFilter = 'completed';
+            render();
+        });
+
+        document.getElementById('unCompleted').addEventListener('click', () => {
+            currentFilter = 'unCompleted';
+            render();
+        });
+
+        document.getElementById('high').addEventListener('click', () => {
+            currentFilter = 'high';
+            render();
+        });
+
+        document.getElementById('medium').addEventListener('click', () => {
+            currentFilter = 'medium';
+            render();
+        });
+
+        document.getElementById('low').addEventListener('click', () => {
+            currentFilter = 'low';
+            render();
+        });
+
+
+        render();
     }
+
+    // 启动
+    init();
 
 </script>
 
