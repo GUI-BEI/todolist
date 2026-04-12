@@ -260,7 +260,8 @@
         // 创建示例
         const sample1 = new EventItem('完成项目报告', '数据分析', 3, '2026-04-08', '2026-04-10', false);
         const sample2 = new EventItem('拼豆', '拼2778个豆', 2, '2026-04-12', '2026-04-15', false);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify([sample1, sample2]));
+        const sample3 = new EventItem('拼拼豆', '拼2778个豆', 1, '2026-04-12', '2026-04-14', false);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify([sample1, sample2,sample3]));
 
         // 绑定筛选按钮
         document.getElementById('all').addEventListener('click', () => {
