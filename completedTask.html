@@ -220,10 +220,11 @@
 
     // 渲染
     function render() {
-        tasks = loadEvents();
+        if (!tasks || tasks.length === 0) tasks = loadEvents();
         const filteredTasks = getTasks();
         renderTaskList(filteredTasks);
     }
+
 
     function renderTaskList(taskArray) {
         const container = document.getElementById('taskList');
@@ -257,12 +258,15 @@
 
     // 初始化
     function init() {
-        
+
         // 创建示例
-        const sample1 = new EventItem('完成项目报告', '数据分析', 3, '2026-04-08', '2026-04-10', false);
-        const sample2 = new EventItem('拼豆', '拼2778个豆', 2, '2026-04-12', '2026-04-15', false);
-        const sample3 = new EventItem('拼拼豆', '拼2778个豆', 1, '2026-04-12', '2026-04-14', false);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify([sample1, sample2,sample3]));
+        if (!localStorage.getItem(STORAGE_KEY)) {
+            const sample1 = new EventItem('完成项目报告', '数据分析', 3, '2026-04-08', '2026-04-10', false);
+            const sample2 = new EventItem('拼豆', '拼2778个豆', 2, '2026-04-12', '2026-04-15', false);
+            const sample3 = new EventItem('拼拼豆', '拼2778个豆', 1, '2026-04-12', '2026-04-14', false);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify([sample1, sample2, sample3]));
+        }
+
 
         // 绑定筛选按钮
         document.getElementById('all').addEventListener('click', () => {
@@ -295,7 +299,20 @@
             render();
         });
 
-        render();
+        fetchTasks();
+    }
+
+    function convertToEventItem(item) {
+        const task = new EventItem(
+            item.title || '',
+            item.description || '',
+            item.priority,
+            item.startTime || item.start || '',
+            item.endTime || item.end || '',
+            item.completed
+        );
+        task.id = item.id;
+        return task;
     }
 
     function fetchTasks() {
@@ -305,13 +322,17 @@
                 if (data.code === 200) {
                     console.log('message:', data.message);
                     console.log('任务列表:', data.data);
-                    tasks = data.data;
-                    // 在这里可以将获取到的任务列表渲染到页面上
+                    tasks = data.data.map(item => convertToEventItem(item));
+                    render();
                 } else {
                     console.error('获取任务列表失败:', data.message);
                 }
             })
-            .catch(error => console.error('请求错误:', error));
+            .catch(error => {
+                console.error('请求错误:', error);
+                tasks = loadEvents();
+                render();
+            });
     }
 
     // 启动
