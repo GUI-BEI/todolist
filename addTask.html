@@ -130,9 +130,6 @@
         outline: none;
         /* 去掉默认焦点轮廓 */
     }
-
-
-    
 </style>
 
 <body>
@@ -210,6 +207,11 @@
     // 本地存储实现
     const STORAGE_KEY = 'events';
 
+    // 存储数据
+    function saveEvents(events) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+    }
+
     // 读取数据
     function loadEvents() {
         const Data = localStorage.getItem(STORAGE_KEY);
@@ -231,11 +233,6 @@
             console.error('读取存储失败', e);
             return [];
         }
-    }
-
-    // 存储数据
-    function saveEvents(events) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
     }
 
     // 收集所有数据 在控制台打印
@@ -288,8 +285,8 @@
         .then(result => {
                 console.log('Success:', result);
                 console.log('code:', result.code);
-                console.log('message:', result.message);  
-                window.location.href = 'MainInterface.html';  
+                console.log('message:', result.message);   
+                window.location.href = 'http://127.0.0.1:5500/MainInterface.html';
                 // 可以在这里处理后端返回的数据，例如显示成功消息
         })
         .catch(error => {

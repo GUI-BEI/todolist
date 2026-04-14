@@ -9,9 +9,13 @@ import javax.xml.transform.Result;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.*;
+
 @SpringBootApplication
 @RestController // 加上这个注解，让这个类变成接口控制器
-@CrossOrigin(origins = "*")
+//删掉了crossorigin的全局注释，添加了bean注释保证万无一失
 public class DemoApplication {
     private final List<EventItemDto> tasks = new CopyOnWriteArrayList<>();
 
@@ -31,6 +35,20 @@ public class DemoApplication {
     public static void main(String[] args) {
         SpringApplication.run(DemoApplication.class, args);
     }
+//新添加的注释，相当于显式提醒放行
+    @Bean
+    public WebMvcConfigurer corsConfigurer() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(CorsRegistry registry) {
+                registry.addMapping("/api/**")
+                        .allowedOrigins("http://127.0.0.1:5500", "http://localhost:5500")
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                        .allowedHeaders("*")
+                        .allowCredentials(true);
+            }
+        };
+    }
 
     @PostMapping("/api/addTask")
     public Result<String> addTask(@RequestBody EventItemDto task) {
@@ -49,4 +67,12 @@ public class DemoApplication {
         return new Result<List<EventItemDto>>(200, "获取任务列表成功", tasks);
     }
 }
-
+@Configuration class CorsConfig implements WebMvcConfigurer {
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/api/**")
+                .allowedOrigins("http://127.0.0.1:5500", "http://localhost:5500")
+                .allowedMethods("GET", "POST", "PUT", "DELETE")
+                .allowCredentials(true);
+    }
+}
