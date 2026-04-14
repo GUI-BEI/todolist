@@ -104,7 +104,7 @@
         /*日历条样式，内涵date-cell日期块*/
         .func-body .calendar {
             width: 100%;
-            height: 100px;
+            height: 50px;
             background-color: rgb(89,118,186);
 
             /*子块排列方式*/
@@ -122,9 +122,9 @@
             flex-direction: column;/*让星期、日期和月份垂直排列*/
             border-left: 1px solid #ccc;/*日期之间的分隔线*/
         }
-        .func-body .calendar .date-cell .today{
-            background-color: #f0f0f0;
-            border: 1px solid red;
+        .func-body .calendar .date-cell.today{
+            background-color: #ff0000;
+            border: 1px solid rgb(255, 251, 0);
         }
         
     </style>
@@ -145,39 +145,32 @@
         <div class="calendar">
             <!--每个日期块包含星期、日期和月份-->
             <div class="date-cell">
-                <span class="weekday">一</span>
-                <span class="day-num">day</span>
-                <span class="month" id="weekmonth1"></span>
+                <span >周一</span>
+                <span class="thisWeekDate" ></span>
             </div>
             <div class="date-cell">
-                <span class="weekday">二</span>
-                <span class="day-num">day</span>
-                <span class="month">3月</span>
+                <span >周二</span>
+                <span class="thisWeekDate"></span>
             </div>
             <div class="date-cell">
-                <span class="weekday">三</span>
-                <span class="day-num">day</span>
-                <span class="month">4月</span>
+                <span >周三</span>
+                <span class="thisWeekDate"></span>
             </div>
             <div class="date-cell">
-                <span class="weekday">四</span>
-                <span class="day-num">day</span>
-                <span class="month">4月</span>
+                <span >周四</span>
+                <span class="thisWeekDate"></span>
             </div>
             <div class="date-cell">
-                <span class="weekday">五</span>
-                <span class="day-num">day</span>
-                <span class="month">4月</span>
+                <span >周五</span>
+                <span class="thisWeekDate"></span>
             </div>
             <div class="date-cell">
-                <span class="weekday">六</span>
-                <span class="day-num">day</span>
-                <span class="month">4月</span>
+                <span >周六</span>
+                <span class="thisWeekDate"></span>
             </div>
             <div class="date-cell">
-                <span class="weekday">日</span>
-                <span class="day-num">day</span>
-                <span class="month">4月</span>
+                <span >周日</span>
+                <span class="thisWeekDate"></span>
             </div>
         </div>
         <!--日程列表，包含多个日程项-->
@@ -226,6 +219,7 @@
         </div>
     </div>
     <script>
+        //头顶工具栏
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');  // 月从0开始
@@ -236,26 +230,49 @@
         document.getElementById('weekday').innerText = weekday;
         document.getElementById('date').innerText =formatted;
         
-        var weekdate =[];
-        let diff = today.getDay() == 0? -6 :1-today.getDay();
-        const firstDay =new Date(today);
-        firstDay.setDate(today.getDate()+diff);
-
-        for(let i=0;i<7;++i){
-            const day = new Date(firstDay);
-            day.setDate(firstDay.getDate()+i);
-            weekdate.push(day);
-        }
-
-        function formatDate(date){
-            const weekMonth =date.getMonth()+1;
-            const day =date.getDate();
-            return '${weekMonth}/${day}';
-        }
-
         document.getElementById('add').onclick = function() {
             window.location.href = 'addTask.html';
         }
+
+        //一周日期栏
+        function getWeekDates(){
+            const  weekDates =[];
+            let diff = today.getDay() == 0? -6 :1-today.getDay();
+            const firstDay =new Date(today);
+            firstDay.setDate(today.getDate()+diff);
+
+            for(let i=0;i<7;++i){
+                const day = new Date(firstDay);
+                day.setDate(firstDay.getDate()+i);
+                weekDates.push(day);
+            }
+            return weekDates
+        }
+
+        function formatWeekDate(date){
+            const weekMonth =date.getMonth()+1;
+            const day =date.getDate();
+            return `${weekMonth}/${day}`;
+        }
+
+        function fillWeekDates(){
+            const cells =document.querySelectorAll('.date-cell');
+            const weekDates =getWeekDates();
+
+            cells.forEach((cell, index) => {
+                const dateSpan = cell.querySelector('.thisWeekDate');
+                if (dateSpan) {
+                dateSpan.textContent = formatWeekDate(weekDates[index]);
+                }
+                if(weekDates[index].getDate()===today.getDate()){
+                    cell.classList.add('today')
+                }
+            });
+        }
+
+        
+
+        document.addEventListener('DOMContentLoaded', fillWeekDates);
 
 
     </script>
