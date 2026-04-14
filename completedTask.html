@@ -315,6 +315,8 @@
         return task;
     }
 
+    // 从后端拉取数据
+    // 如果拉取到的[tasks]是空的，就加载localStorage中的三个示例数据
     function fetchTasks() {
         fetch('http://localhost:8080/api/getTasks')
             .then(response => response.json())
