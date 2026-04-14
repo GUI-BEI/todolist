@@ -37,7 +37,7 @@
             grid-column: 3;
             gap: 3px;
         }
-        .func-header .tools .btn{
+        .func-header .tools .btn{/*按钮样式*/
             width: 30px;
             height: 30px;
             border-radius: 50%;          /* 圆形 */
@@ -65,42 +65,6 @@
             border-radius: 8px;
             position: relative;
         }
-        /*日程列表块样式，内涵.schedule-item日程项块*/
-        .func-body .schedule-list {
-            /*日程列表样式*/
-            width: 100%;
-            height: 100%;
-            background-color: #ffffff;
-            background-image: url(17754068327512c7f6b870d76ea31f9c2f0b37c931503ce1c.jpg);
-            background-repeat: no-repeat;
-            background-size: cover;
-            overflow-y: auto; /*内容过多时显示滚动条*/
-            scrollbar-width: none;/*滚动条隐藏保持美观*/
-            contain: layout paint;
-            padding: 20px 0px;/*内边距,只垂直方向*/ 
-            position: relative;
-        }
-        /*日程项样式，内涵概要块和内容块*/
-        .func-body .schedule-list .schedule-item {
-            /*示例日程项样式*/
-            background-color: rgba(96, 181, 255, 0.5);
-            height: 70px;
-            width: 100%;
-            /*日程项之间的间距*/
-            margin-bottom: 5px;
-            border-radius: 6px;
-            /*内容块的水平排列*/
-            display: flex;
-            align-items: center;
-        }
-
-        /*日程项内的内容块*/
-        .func-body .schedule-list .schedule-item .schedule-content {
-            width: 100%;
-            height: 70%;  
-            border-radius: 6px;  
-            background-color: rgba(111,148,205, 0.7);
-        }
         /*日历条样式，内涵date-cell日期块*/
         .func-body .calendar {
             width: 100%;
@@ -126,7 +90,48 @@
             background-color: #ff0000;
             border: 1px solid rgb(255, 251, 0);
         }
-        
+        /*日程列表块样式，内涵.schedule-item日程项块*/
+        .func-body .schedule-list {
+            /*日程列表样式*/
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            background-image: url(17754068327512c7f6b870d76ea31f9c2f0b37c931503ce1c.jpg);
+            background-repeat: no-repeat;
+            background-size: cover;
+            overflow-y: auto; /*内容过多时显示滚动条*/
+            scrollbar-width: none;/*滚动条隐藏保持美观*/
+            contain: layout paint;
+            padding: 20px 0px;/*内边距,只垂直方向*/ 
+            position: relative;
+        }
+        /*日程项样式，内涵内容块*/
+        .func-body .schedule-list .schedule-item {
+            /*示例日程项样式*/
+            background-color: rgba(96, 181, 255, 0.5);/*背景色，推荐和优先级相关*/
+            height: 70px;
+            width: 100%;
+            /*日程项之间的间距*/
+            margin-bottom: 5px;
+            border-radius: 6px;
+            /*内容块的水平排列*/
+            display: flex;
+            align-items: center;
+        }
+
+        /*日程项内的内容块*/
+        .func-body .schedule-list .schedule-item .schedule-content {
+            width: 100%;
+            height: 70%;  
+            border-radius: 6px;  
+            background-color: rgba(111,148,205, 0.7);/*内容背景色，推荐和分类相关*/
+
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;    /* 显示行数限定为两行 */
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     </style>
 </head>
 <body>
@@ -176,45 +181,12 @@
         </div>
         <!--日程列表，包含多个日程项-->
         <div class="schedule-list">
-            <!--每个日程项包含概要块和内容块-->
+            <!--每个日程项包含内容块-->
             <div class="schedule-item">
                 <!--内容块-->
                 <div class="schedule-content">会议</div>
             </div>
             <div class="schedule-item">
-                <div class="schedule-content">上课</div>
-            </div>
-            <div class="schedule-item">
-                <div class="schedule-content">上课</div>
-            </div>
-            <div class="schedule-item">
-                <div class="schedule-content">上课</div>
-            </div>
-            <div class="schedule-item">
-                <div class="schedule-content">上课</div>
-            </div>
-            <div class="schedule-item">
-                <div class="schedule-content">上课</div>
-            </div>
-             <div class="schedule-item">
-                <div class="schedule-content">上课</div>
-            </div>
-             <div class="schedule-item">
-                <div class="schedule-content">上课</div>
-            </div>
-             <div class="schedule-item">
-                <div class="schedule-content">上课</div>
-            </div> 
-            <div class="schedule-item">
-                <div class="schedule-content">上课</div>
-            </div>
-             <div class="schedule-item">
-                <div class="schedule-content">上课</div>
-            </div>
-             <div class="schedule-item">
-                <div class="schedule-content">上课</div>
-            </div>
-             <div class="schedule-item">
                 <div class="schedule-content">上课</div>
             </div>
         </div>
@@ -231,21 +203,25 @@
         document.getElementById('weekday').innerText = weekday;
         document.getElementById('date').innerText =formatted;
         
-        document.getElementById('add').onclick = function() {
+        document.getElementById('add').onclick = function() {//添加界面
             window.location.href = 'addTask.html';
+        }
+
+         document.getElementById('search').onclick = function() {//统计界面 （为什么命名为search？ by夏）
+            window.location.href = 'completedTask.html';
         }
 
         //一周日期栏
         function getWeekDates(){
             const  weekDates =[];
-            let diff = today.getDay() == 0? -6 :1-today.getDay();
+            let diff = today.getDay() == 0? -6 :1-today.getDay();//周一与当天的偏移量
             const firstDay =new Date(today);
-            firstDay.setDate(today.getDate()+diff);
+            firstDay.setDate(today.getDate()+diff);//根据偏移量确定周一日期
 
             for(let i=0;i<7;++i){
                 const day = new Date(firstDay);
                 day.setDate(firstDay.getDate()+i);
-                weekDates.push(day);
+                weekDates.push(day);//确认所有日期
             }
             return weekDates
         }
@@ -253,32 +229,29 @@
         function formatWeekDate(date){
             const weekMonth =date.getMonth()+1;
             const day =date.getDate();
-            return `${weekMonth}/${day}`;
+            return `${weekMonth}/${day}`;//格式化为字符串
         }
 
         function fillWeekDates(){
-            const cells =document.querySelectorAll('.date-cell');
-            const weekDates =getWeekDates();
+            const cells =document.querySelectorAll('.date-cell');//获取七个天数块
+            const weekDates =getWeekDates();//获取日期组
 
             cells.forEach((cell, index) => {
                 const dateSpan = cell.querySelector('.thisWeekDate');
                 if (dateSpan) {
-                dateSpan.textContent = formatWeekDate(weekDates[index]);
+                dateSpan.textContent = formatWeekDate(weekDates[index]);//填充日期
                 }
                 if(weekDates[index].getDate()===today.getDate()){
-                    cell.classList.add('today')
+                    cell.classList.add('today')//判断处于当天的天数块，高亮显示
                 }
             });
         }
 
-        
-
-        document.addEventListener('DOMContentLoaded', fillWeekDates);
+        document.addEventListener('DOMContentLoaded', fillWeekDates);//渲染一周七天的日期
 
 
-        document.getElementById('search').onclick = function() {
-            window.location.href = 'completedTask.html';
-        }
+       
+
     </script>
     <script>
         let tasks = [];
@@ -294,15 +267,51 @@
                     if (data.code === 200) {
                         console.log('message:', data.message);
                         console.log('任务列表:', data.data);
-                        tasks = data.data;
-                        // 在这里可以将获取到的任务列表渲染到页面上
+                        const newTaskList= data.data;
+                        // 在这里可以将获取到的任务列表渲染到页面上，完成渲染后，续到tasks数组
+                        newTaskList.forEach(item => {
+                            const title = item.title;
+                            const description = item.description;
+                            const startDate = item.start;    // 格式 "2026-04-15"
+                            const endDate = item.end;        // 格式 "2026-04-16"
+                            const priority = item.priority;
+                            const type = item.type;
+                            const completed = item.completed;
+
+                            //优先级应当影响事务块背景色
+                            //分类应当影响内容块背景色
+                            //是否完成应当影响排序和所有背景色，完成的会排到最下面，并且完全灰掉
+                            //TODO
+
+                            //事务块背景色设置
+                            const itemBlock =document.createElement('div');
+                            itemBlock.className='schedule-item';
+                            
+                            //内容块依次实现背景色和内容
+                            const content =document.createElement('div');
+                            content.className='schedule-content';
+                            //TODO
+                            //填充文本
+                            content.textContent=formatDate(startDate)+'->'+formatDate(endDate)
+                                +' '+title+':'+description;
+
+                            const scheduleList =document.querySelector('.schedule-list');
+                            itemBlock.appendChild(content);
+                            scheduleList.appendChild(itemBlock);
+                            tasks=tasks.concat(newTaskList);
+                        });
                     } else {
                         console.error('获取任务列表失败:', data.message);
                     }
                 })
                 .catch(error => console.error('请求错误:', error));
         }
-        
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return dateStr;
+            return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+        }
     </script>
 </body>
 </html>
