@@ -117,13 +117,15 @@
             /*内容块的水平排列*/
             display: flex;
             align-items: center;
+            justify-content: center;
         }
 
         /*日程项内的内容块*/
         .func-body .schedule-list .schedule-item .schedule-content {
-            width: 100%;
+            width: 98%;
             height: 70%;  
             border-radius: 6px;  
+            display: flex;
             background-color: rgba(111,148,205, 0.7);/*内容背景色，推荐和分类相关*/
 
             display: -webkit-box;
@@ -182,17 +184,10 @@
         <!--日程列表，包含多个日程项-->
         <div class="schedule-list">
             <!--每个日程项包含内容块-->
-            <div class="schedule-item">
-                <!--内容块-->
-                <div class="schedule-content">会议</div>
-            </div>
-            <div class="schedule-item">
-                <div class="schedule-content">上课</div>
-            </div>
         </div>
     </div>
     <script>
-        //头顶工具栏
+        //头顶工具栏日期信息和按钮
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');  // 月从0开始
@@ -211,13 +206,12 @@
             window.location.href = 'completedTask.html';
         }
 
-        //一周日期栏
+        //一周日期栏的显示
         function getWeekDates(){
             const  weekDates =[];
-            let diff = today.getDay() == 0? -6 :1-today.getDay();//周一与当天的偏移量
-            const firstDay =new Date(today);
-            firstDay.setDate(today.getDate()+diff);//根据偏移量确定周一日期
-
+            //获得第一天日期
+            const firstDay =getFirstWeekDate(today);
+            
             for(let i=0;i<7;++i){
                 const day = new Date(firstDay);
                 day.setDate(firstDay.getDate()+i);
@@ -226,13 +220,20 @@
             return weekDates
         }
 
-        function formatWeekDate(date){
-            const weekMonth =date.getMonth()+1;
-            const day =date.getDate();
-            return `${weekMonth}/${day}`;//格式化为字符串
+        function getFirstWeekDate(today){//根据当天，获得当周第一天日期
+            const firstDay=new Date(today);
+            let diff = today.getDay() == 0? -6 :1-today.getDay();//周一与当天的偏移量
+            firstDay.setDate(today.getDate()+diff);//根据偏移量确定周一日期
+            return firstDay;
         }
 
-        function fillWeekDates(){
+        function formatWeekDate(date){//格式化日期为字符串
+            const weekMonth =date.getMonth()+1;
+            const day =date.getDate();
+            return `${weekMonth}/${day}`;
+        }
+
+        function fillWeekDates(){//填充天数块
             const cells =document.querySelectorAll('.date-cell');//获取七个天数块
             const weekDates =getWeekDates();//获取日期组
 
@@ -246,19 +247,15 @@
                 }
             });
         }
-
         document.addEventListener('DOMContentLoaded', fillWeekDates);//渲染一周七天的日期
 
-
-       
-
-    </script>
-    <script>
+        //事务的显示
         let tasks = [];
         //页面加载完成后获取任务列表
         document.addEventListener('DOMContentLoaded', function() {
             fetchTasks();
         });
+       
         //从后端获取任务列表的函数
         function fetchTasks() {
             fetch('http://localhost:8080/api/getTasks')
@@ -268,7 +265,7 @@
                         console.log('message:', data.message);
                         console.log('任务列表:', data.data);
                         const newTaskList= data.data;
-                        // 在这里可以将获取到的任务列表渲染到页面上，完成渲染后，续到tasks数组
+                        // 在这里可以将获取到的任务列表显示到页面上，完成后，续到tasks数组
                         newTaskList.forEach(item => {
                             const title = item.title;
                             const description = item.description;
@@ -290,7 +287,8 @@
                             //内容块依次实现背景色和内容
                             const content =document.createElement('div');
                             content.className='schedule-content';
-                            //TODO
+                            //背景TODO
+
                             //填充文本
                             content.textContent=formatDate(startDate)+'->'+formatDate(endDate)
                                 +' '+title+':'+description;
@@ -305,6 +303,7 @@
                     }
                 })
                 .catch(error => console.error('请求错误:', error));
+                renderTasks();
         }
         function formatDate(dateStr) {
             if (!dateStr) return '';
@@ -312,6 +311,46 @@
             if (parts.length !== 3) return dateStr;
             return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
         }
+        //事务在本周的长度
+        function getTaskWidth(startDate,endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+
+            const firstDay =getFirstWeekDate(today);
+            const endDay =new Date(firstDay);
+            endDay.setDate(firstDay.getDate()+6);
+            // 交集：实际开始和结束
+            const actualStart = new Date(Math.max(start, firstDay));
+            const actualEnd = new Date(Math.min(end, endDay));
+            if (actualStart > actualEnd) return null; // 无交集
+            //相对位置索引
+            const startDayIndex = (actualStart.getDay() + 6) % 7; 
+            
+            //开始和结束天数差
+            const diffTime = end - start;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // 包含首尾
+
+            //本周宽度
+            const width = diffDays*17;
+            
+            return width;
+        }
+        
+        function renderTasks(){//渲染事务
+        //根据事务在本周的长度渲染
+            const allContents = document.querySelectorAll('.schedule-content');
+            console.log("render");
+            tasks.forEach(task =>{
+                console.log("render");
+                const startDate = task.start;    // 格式 "2026-04-15"
+                const endDate = task.end;
+                const taskWidth = getTaskWidth(startDate,endDate);
+                console.log('计算出的宽度值:', taskWidth);
+                //allContents[index].style.width=`${taskWidth}%`;
+            });
+            
+        }
+        document.addEventListener('DOMContentLoaded', renderTasks());
     </script>
 </body>
 </html>
