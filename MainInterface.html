@@ -117,7 +117,6 @@
             /*内容块的水平排列*/
             display: flex;
             align-items: center;
-            justify-content: center;
         }
 
         /*日程项内的内容块*/
@@ -264,46 +263,72 @@
                     if (data.code === 200) {
                         console.log('message:', data.message);
                         console.log('任务列表:', data.data);
-                        const newTaskList= data.data;
                         // 在这里可以将获取到的任务列表显示到页面上，完成后，续到tasks数组
-                        newTaskList.forEach(item => {
-                            const title = item.title;
-                            const description = item.description;
-                            const startDate = item.start;    // 格式 "2026-04-15"
-                            const endDate = item.end;        // 格式 "2026-04-16"
-                            const priority = item.priority;
-                            const type = item.type;
-                            const completed = item.completed;
+                        tasks = [];
+                        const scheduleList = document.querySelector('.schedule-list');
+                        scheduleList.innerHTML = ''; // 清空现有内容
+                        tasks = data.data;
+                        console.log(tasks);
+                        // renderTasks(tasks);
 
-                            //优先级应当影响事务块背景色
-                            //分类应当影响内容块背景色
-                            //是否完成应当影响排序和所有背景色，完成的会排到最下面，并且完全灰掉
-                            //TODO
+                        //根据事务在本周的长度渲染
+                        console.log("render");
+                        console.log(tasks);
+                        tasks.forEach((task, index) => {
+                                const title = task.title;
+                                const description = task.description;
+                                const startDate = task.start;    // 格式 "2026-04-15"
+                                const endDate = task.end;        // 格式 "2026-04-16"
+                                const priority = task.priority;
+                                const type = task.type;
+                                const completed = task.completed;
+                                console.log(task);
+                                //优先级应当影响事务块背景色
+                                //分类应当影响内容块背景色
+                                //是否完成应当影响排序和所有背景色，完成的会排到最下面，并且完全灰掉
+                                //TODO
 
-                            //事务块背景色设置
-                            const itemBlock =document.createElement('div');
-                            itemBlock.className='schedule-item';
-                            
-                            //内容块依次实现背景色和内容
-                            const content =document.createElement('div');
-                            content.className='schedule-content';
-                            //背景TODO
+                                //事务块背景色设置
+                                const itemBlock =document.createElement('div');
+                                itemBlock.className='schedule-item';
+                                
+                                //内容块依次实现背景色和内容
+                                const content =document.createElement('div');
+                                content.className='schedule-content';
+                                //背景TODO
 
-                            //填充文本
-                            content.textContent=formatDate(startDate)+'->'+formatDate(endDate)
-                                +' '+title+':'+description;
+                                //填充文本
+                                content.textContent=formatDate(startDate)+'->'+formatDate(endDate)
+                                    +' '+title+':'+description;
 
-                            const scheduleList =document.querySelector('.schedule-list');
-                            itemBlock.appendChild(content);
-                            scheduleList.appendChild(itemBlock);
-                            tasks=tasks.concat(newTaskList);
+                                const scheduleList =document.querySelector('.schedule-list');
+                                itemBlock.appendChild(content);
+                                scheduleList.appendChild(itemBlock);
+                                
+                                console.log("render");
+                                const taskWidth = getTaskWidth(startDate,endDate);
+                                console.log('计算出的宽度值:', taskWidth);
+                                content.style.width=`${taskWidth}%`;
+
+                                const start =new Date(startDate);
+                                const end = new Date(endDate);
+                                const firstDay =getFirstWeekDate(today);
+                                const endDay =new Date(firstDay);
+                                endDay.setDate(firstDay.getDate()+6);
+                                const actualStart = new Date(Math.max(start, firstDay));
+                                const actualEnd = new Date(Math.min(end, endDay));
+                                if (actualStart > actualEnd) return null; // 无交集
+                                //相对位置索引
+                                const startDayIndex = ((actualStart.getDay() + 6) % 7)*14; 
+                                content.style.marginLeft = `${startDayIndex}%`;
+                                console.log("load");
                         });
+                        
                     } else {
                         console.error('获取任务列表失败:', data.message);
                     }
                 })
                 .catch(error => console.error('请求错误:', error));
-                renderTasks();
         }
         function formatDate(dateStr) {
             if (!dateStr) return '';
@@ -331,24 +356,63 @@
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // 包含首尾
 
             //本周宽度
-            const width = diffDays*17;
+            const width = diffDays*14;
             
             return width;
         }
         
         function renderTasks(){//渲染事务
-        //根据事务在本周的长度渲染
-            const allContents = document.querySelectorAll('.schedule-content');
-            console.log("render");
-            tasks.forEach(task =>{
-                console.log("render");
-                const startDate = task.start;    // 格式 "2026-04-15"
-                const endDate = task.end;
-                const taskWidth = getTaskWidth(startDate,endDate);
-                console.log('计算出的宽度值:', taskWidth);
-                //allContents[index].style.width=`${taskWidth}%`;
-            });
-            
+        console.log("render");
+                        console.log(tasks);
+                        tasks.forEach((task, index) => {
+                                const title = task.title;
+                                const description = task.description;
+                                const startDate = task.start;    // 格式 "2026-04-15"
+                                const endDate = task.end;        // 格式 "2026-04-16"
+                                const priority = task.priority;
+                                const type = task.type;
+                                const completed = task.completed;
+                                console.log(task);
+                                //优先级应当影响事务块背景色
+                                //分类应当影响内容块背景色
+                                //是否完成应当影响排序和所有背景色，完成的会排到最下面，并且完全灰掉
+                                //TODO
+
+                                //事务块背景色设置
+                                const itemBlock =document.createElement('div');
+                                itemBlock.className='schedule-item';
+                                
+                                //内容块依次实现背景色和内容
+                                const content =document.createElement('div');
+                                content.className='schedule-content';
+                                //背景TODO
+
+                                //填充文本
+                                content.textContent=formatDate(startDate)+'->'+formatDate(endDate)
+                                    +' '+title+':'+description;
+
+                                const scheduleList =document.querySelector('.schedule-list');
+                                itemBlock.appendChild(content);
+                                scheduleList.appendChild(itemBlock);
+                                
+                                console.log("render");
+                                const taskWidth = getTaskWidth(startDate,endDate);
+                                console.log('计算出的宽度值:', taskWidth);
+                                content.style.width=`${taskWidth}%`;
+
+                                const start =new Date(startDate);
+                                const end = new Date(endDate);
+                                const firstDay =getFirstWeekDate(today);
+                                const endDay =new Date(firstDay);
+                                endDay.setDate(firstDay.getDate()+6);
+                                const actualStart = new Date(Math.max(start, firstDay));
+                                const actualEnd = new Date(Math.min(end, endDay));
+                                if (actualStart > actualEnd) return null; // 无交集
+                                //相对位置索引
+                                const startDayIndex = ((actualStart.getDay() + 6) % 7)*14; 
+                                content.style.marginLeft = `${startDayIndex}%`;
+                                console.log("load");
+                        });
         }
         document.addEventListener('DOMContentLoaded', renderTasks());
     </script>
