@@ -8,12 +8,10 @@ const router = createRouter({
     { 
       path: '/', 
       component: MainInterface, 
-      meta: { bodyClass: 'home-page-bg' } // 首页特有样式名
     },
     { 
       path: '/add', 
       component: TaskForm, 
-      meta: { bodyClass: 'form-page-bg' } // 添加页特有样式名
     }
   ]
 })
