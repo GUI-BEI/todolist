@@ -3,6 +3,7 @@
     <nav class="nav-bar">
       <router-link to="/">首页 (周视图)</router-link>
       <router-link to="/add">添加新任务</router-link>
+      <router-link to="/history">足迹</router-link>
     </nav>
 
     <main class="page-container">
