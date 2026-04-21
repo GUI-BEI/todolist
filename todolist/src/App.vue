@@ -1,59 +1,39 @@
 <template>
-  <div class="app-container">
+  <div class="app-wrapper">
     <nav class="nav-bar">
       <router-link to="/">首页 (周视图)</router-link>
       <router-link to="/add">添加新任务</router-link>
     </nav>
 
-    <main>
+    <main class="page-container">
       <router-view />
     </main>
   </div>
 </template>
 
 <script setup>
-import { watch } from 'vue';
-import { useRoute } from 'vue-router';
-
-const route = useRoute();
-
-// 监听路由对象，只要路由变了，就执行这里的代码
-watch(
-  () => route.meta,
-  (newMeta) => {
-    // 先清除之前添加过的 bodyClass (如果有的话)
-    document.body.className = ''; 
-    
-    // 如果当前页面定义了 meta.bodyClass，则添加到 body 上
-    if (newMeta.bodyClass) {
-      document.body.classList.add(newMeta.bodyClass);
-    }
-  },
-  { immediate: true } // 保证刚进入项目时也能触发
-);
 </script>
 
 <style>
-/* 首页背景 */
-.home-page-bg {
-    background-color: rgb(230, 234, 249);
-    padding: 20px;
+
+.app-wrapper {
+    display: flex;
+    flex-direction: column;
 }
 
-/* 添加页背景 */
-.form-page-bg {
-  /* 背景颜色 */
-  background: rgb(230, 234, 249);
-  min-height: 100%;
-  /* flex布局 */
-  display: flex;
-  /* 垂直居中 */
-  align-items: center;
-  /* 水平居中 */
-  justify-content: center;
-  /* 内边距 */
-  padding: 5%;
-  /* 字体 默认值 */
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+.nav-bar {
+    height: 60px; /* 固定高度 */
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    flex-shrink: 0; /* 禁止被压缩 */
 }
+
+.page-container {
+    flex: 1; /* 自动撑开剩余所有空间 */
+    overflow-y: auto; /* 内容多了自动出现滚动条，不会挤压导航栏 */
+    width: 100%;
+}
+
 </style>
