@@ -121,9 +121,10 @@
 
         /*日程项内的内容块*/
         .func-body .schedule-list .schedule-item .schedule-content {
-            width: 100%;
+            width: 98%;
             height: 70%;  
             border-radius: 6px;  
+            display: flex;
             background-color: rgba(111,148,205, 0.7);/*内容背景色，推荐和分类相关*/
 
             display: -webkit-box;
@@ -182,17 +183,10 @@
         <!--日程列表，包含多个日程项-->
         <div class="schedule-list">
             <!--每个日程项包含内容块-->
-            <div class="schedule-item">
-                <!--内容块-->
-                <div class="schedule-content">会议</div>
-            </div>
-            <div class="schedule-item">
-                <div class="schedule-content">上课</div>
-            </div>
         </div>
     </div>
     <script>
-        //头顶工具栏
+        //头顶工具栏日期信息和按钮
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');  // 月从0开始
@@ -211,13 +205,12 @@
             window.location.href = 'completedTask.html';
         }
 
-        //一周日期栏
+        //一周日期栏的显示
         function getWeekDates(){
             const  weekDates =[];
-            let diff = today.getDay() == 0? -6 :1-today.getDay();//周一与当天的偏移量
-            const firstDay =new Date(today);
-            firstDay.setDate(today.getDate()+diff);//根据偏移量确定周一日期
-
+            //获得第一天日期
+            const firstDay =getFirstWeekDate(today);
+            
             for(let i=0;i<7;++i){
                 const day = new Date(firstDay);
                 day.setDate(firstDay.getDate()+i);
@@ -226,13 +219,20 @@
             return weekDates
         }
 
-        function formatWeekDate(date){
-            const weekMonth =date.getMonth()+1;
-            const day =date.getDate();
-            return `${weekMonth}/${day}`;//格式化为字符串
+        function getFirstWeekDate(today){//根据当天，获得当周第一天日期
+            const firstDay=new Date(today);
+            let diff = today.getDay() == 0? -6 :1-today.getDay();//周一与当天的偏移量
+            firstDay.setDate(today.getDate()+diff);//根据偏移量确定周一日期
+            return firstDay;
         }
 
-        function fillWeekDates(){
+        function formatWeekDate(date){//格式化日期为字符串
+            const weekMonth =date.getMonth()+1;
+            const day =date.getDate();
+            return `${weekMonth}/${day}`;
+        }
+
+        function fillWeekDates(){//填充天数块
             const cells =document.querySelectorAll('.date-cell');//获取七个天数块
             const weekDates =getWeekDates();//获取日期组
 
@@ -246,19 +246,15 @@
                 }
             });
         }
-
         document.addEventListener('DOMContentLoaded', fillWeekDates);//渲染一周七天的日期
 
-
-       
-
-    </script>
-    <script>
+        //事务的显示
         let tasks = [];
         //页面加载完成后获取任务列表
         document.addEventListener('DOMContentLoaded', function() {
             fetchTasks();
         });
+       
         //从后端获取任务列表的函数
         function fetchTasks() {
             fetch('http://localhost:8080/api/getTasks')
@@ -267,39 +263,67 @@
                     if (data.code === 200) {
                         console.log('message:', data.message);
                         console.log('任务列表:', data.data);
-                        const newTaskList= data.data;
-                        // 在这里可以将获取到的任务列表渲染到页面上，完成渲染后，续到tasks数组
-                        newTaskList.forEach(item => {
-                            const title = item.title;
-                            const description = item.description;
-                            const startDate = item.start;    // 格式 "2026-04-15"
-                            const endDate = item.end;        // 格式 "2026-04-16"
-                            const priority = item.priority;
-                            const type = item.type;
-                            const completed = item.completed;
+                        // 在这里可以将获取到的任务列表显示到页面上，完成后，续到tasks数组
+                        tasks = [];
+                        const scheduleList = document.querySelector('.schedule-list');
+                        scheduleList.innerHTML = ''; // 清空现有内容
+                        tasks = data.data;
+                        console.log(tasks);
+                        // renderTasks(tasks);
 
-                            //优先级应当影响事务块背景色
-                            //分类应当影响内容块背景色
-                            //是否完成应当影响排序和所有背景色，完成的会排到最下面，并且完全灰掉
-                            //TODO
+                        //根据事务在本周的长度渲染
+                        console.log("render");
+                        console.log(tasks);
+                        tasks.forEach((task, index) => {
+                                const title = task.title;
+                                const description = task.description;
+                                const startDate = task.start;    // 格式 "2026-04-15"
+                                const endDate = task.end;        // 格式 "2026-04-16"
+                                const priority = task.priority;
+                                const type = task.type;
+                                const completed = task.completed;
+                                console.log(task);
+                                //优先级应当影响事务块背景色
+                                //分类应当影响内容块背景色
+                                //是否完成应当影响排序和所有背景色，完成的会排到最下面，并且完全灰掉
+                                //TODO
 
-                            //事务块背景色设置
-                            const itemBlock =document.createElement('div');
-                            itemBlock.className='schedule-item';
-                            
-                            //内容块依次实现背景色和内容
-                            const content =document.createElement('div');
-                            content.className='schedule-content';
-                            //TODO
-                            //填充文本
-                            content.textContent=formatDate(startDate)+'->'+formatDate(endDate)
-                                +' '+title+':'+description;
+                                //事务块背景色设置
+                                const itemBlock =document.createElement('div');
+                                itemBlock.className='schedule-item';
+                                
+                                //内容块依次实现背景色和内容
+                                const content =document.createElement('div');
+                                content.className='schedule-content';
+                                //背景TODO
 
-                            const scheduleList =document.querySelector('.schedule-list');
-                            itemBlock.appendChild(content);
-                            scheduleList.appendChild(itemBlock);
-                            tasks=tasks.concat(newTaskList);
+                                //填充文本
+                                content.textContent=formatDate(startDate)+'->'+formatDate(endDate)
+                                    +' '+title+':'+description;
+
+                                const scheduleList =document.querySelector('.schedule-list');
+                                itemBlock.appendChild(content);
+                                scheduleList.appendChild(itemBlock);
+                                
+                                console.log("render");
+                                const taskWidth = getTaskWidth(startDate,endDate);
+                                console.log('计算出的宽度值:', taskWidth);
+                                content.style.width=`${taskWidth}%`;
+
+                                const start =new Date(startDate);
+                                const end = new Date(endDate);
+                                const firstDay =getFirstWeekDate(today);
+                                const endDay =new Date(firstDay);
+                                endDay.setDate(firstDay.getDate()+6);
+                                const actualStart = new Date(Math.max(start, firstDay));
+                                const actualEnd = new Date(Math.min(end, endDay));
+                                if (actualStart > actualEnd) return null; // 无交集
+                                //相对位置索引
+                                const startDayIndex = ((actualStart.getDay() + 6) % 7)*14; 
+                                content.style.marginLeft = `${startDayIndex}%`;
+                                console.log("load");
                         });
+                        
                     } else {
                         console.error('获取任务列表失败:', data.message);
                     }
@@ -312,6 +336,85 @@
             if (parts.length !== 3) return dateStr;
             return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
         }
+        //事务在本周的长度
+        function getTaskWidth(startDate,endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+
+            const firstDay =getFirstWeekDate(today);
+            const endDay =new Date(firstDay);
+            endDay.setDate(firstDay.getDate()+6);
+            // 交集：实际开始和结束
+            const actualStart = new Date(Math.max(start, firstDay));
+            const actualEnd = new Date(Math.min(end, endDay));
+            if (actualStart > actualEnd) return null; // 无交集
+            //相对位置索引
+            const startDayIndex = (actualStart.getDay() + 6) % 7; 
+            
+            //开始和结束天数差
+            const diffTime = end - start;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // 包含首尾
+
+            //本周宽度
+            const width = diffDays*14;
+            
+            return width;
+        }
+        
+        function renderTasks(){//渲染事务
+        console.log("render");
+                        console.log(tasks);
+                        tasks.forEach((task, index) => {
+                                const title = task.title;
+                                const description = task.description;
+                                const startDate = task.start;    // 格式 "2026-04-15"
+                                const endDate = task.end;        // 格式 "2026-04-16"
+                                const priority = task.priority;
+                                const type = task.type;
+                                const completed = task.completed;
+                                console.log(task);
+                                //优先级应当影响事务块背景色
+                                //分类应当影响内容块背景色
+                                //是否完成应当影响排序和所有背景色，完成的会排到最下面，并且完全灰掉
+                                //TODO
+
+                                //事务块背景色设置
+                                const itemBlock =document.createElement('div');
+                                itemBlock.className='schedule-item';
+                                
+                                //内容块依次实现背景色和内容
+                                const content =document.createElement('div');
+                                content.className='schedule-content';
+                                //背景TODO
+
+                                //填充文本
+                                content.textContent=formatDate(startDate)+'->'+formatDate(endDate)
+                                    +' '+title+':'+description;
+
+                                const scheduleList =document.querySelector('.schedule-list');
+                                itemBlock.appendChild(content);
+                                scheduleList.appendChild(itemBlock);
+                                
+                                console.log("render");
+                                const taskWidth = getTaskWidth(startDate,endDate);
+                                console.log('计算出的宽度值:', taskWidth);
+                                content.style.width=`${taskWidth}%`;
+
+                                const start =new Date(startDate);
+                                const end = new Date(endDate);
+                                const firstDay =getFirstWeekDate(today);
+                                const endDay =new Date(firstDay);
+                                endDay.setDate(firstDay.getDate()+6);
+                                const actualStart = new Date(Math.max(start, firstDay));
+                                const actualEnd = new Date(Math.min(end, endDay));
+                                if (actualStart > actualEnd) return null; // 无交集
+                                //相对位置索引
+                                const startDayIndex = ((actualStart.getDay() + 6) % 7)*14; 
+                                content.style.marginLeft = `${startDayIndex}%`;
+                                console.log("load");
+                        });
+        }
+        document.addEventListener('DOMContentLoaded', renderTasks());
     </script>
 </body>
 </html>
