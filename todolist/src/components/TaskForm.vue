@@ -1,24 +1,20 @@
 <template>
   <div class="content-wrapper">
       <div class="task-form">
-        <div>
-          <!-- <button class="return" @click="$router.back()"> < </button> -->
-          <h3>添加新任务</h3>
-        </div>
 
         <div class="inputBar">
           <span>title</span>
-          <input type="text" v-model="form.title" placeholder="标题">
+          <input type="text" v-model="form.title" placeholder=" 标题">
         </div>
 
         <div class="inputBar">
           <span>description</span>
-          <input type="text" v-model="form.description" placeholder="描述">
+          <input type="text" v-model="form.description" placeholder=" 描述">
         </div>
 
         <div class="inputBar">
           <span>priority</span>
-          <select v-model="form.priority">
+          <select  class="priority" v-model="form.priority">
             <option value="3">高</option>
             <option value="2">中</option>
             <option value="1">低</option>
@@ -35,7 +31,7 @@
 
         <div class="inputBar">
           <span>type</span>
-          <input type="text" v-model="form.type" placeholder="分类">
+          <input type="text" v-model="form.type" placeholder=" 分类">
         </div>
 
         <button class="addBtn" @click="submitTask">ADD</button>
@@ -114,27 +110,30 @@ const submitTask = async () => {
   /* 透明背景 */
   background: transparent;
   /* 内边距 */
-  padding: 20px 15px;
+  padding: 15px 5px;
   /* 字体大小 */
-  font-size: 25px;
+  font-size: 20px;
   /* 颜色 */
   color: #222e41;
   /* 属性变化时 在0.2秒内平滑过渡 */
   transition: all 0.2s;
   /* 圆角设置，左上尖，其余三个圆 */
   border-radius: 0px 15px 15px 15px;
+  /* 宽度 */
+  width: 60vw;
+  /* 高度 */
+  height: auto;
 }
 
-#pri {
+.priority {
   /* 提升为块级元素 */
   display: block;
   /* 宽度  父类的100% */
   width: 100%;
   /* 高度 视口高度的5% */
   height: 5vh;
-  /* 上下外边距 */
-  margin-top: 4%;
-  margin-bottom: 10%;
+  /* 上 外边距 */
+  margin-top: 15px;
   /* 背景颜色 比大的背景稍白一点 */
   background-color: rgb(240, 242, 249);
   /* 圆角 */
@@ -160,11 +159,19 @@ input[type="date"] {
   /* 文本水平居中 */
   justify-content: center;
   /* 内边距 */
-  padding: 5%;
-  /* 宽度：视口宽度的33% */
+  padding: 3%;
+  /* 宽度 */
   width: 100%;
   /* 圆角 */
   border-radius: 20px;
+  /* 背景颜色 */
+  background-color: rgb(231, 235, 242);
+}
+
+/* 激活状态的样式 */
+.addBtn:active {
+  border-color: rgb(19, 24, 41);
+  background-color: rgba(208, 212, 218, 0.616)
 }
 
 .content-wrapper {
@@ -178,7 +185,7 @@ input[type="date"] {
   /* 水平居中 */
   justify-content: center;
   /* 内边距 */
-  padding: 5%;
+  padding: 0 3% 1% 3%;
   /* 字体 默认值 */
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
