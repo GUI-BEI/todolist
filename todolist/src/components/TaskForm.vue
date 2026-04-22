@@ -43,6 +43,7 @@
 
 <script setup>
 import { reactive } from 'vue';
+import { addTask } from '@/api/task';
 
 // 数据绑定
 const form = reactive({
@@ -67,15 +68,10 @@ const submitTask = async () => {
       ...form
     };
 
-    // 发送请求给 Java 后端
+    // 发送请求给 Java 后端（标准 axios 封装方式）
     try {
-      const response = await fetch('http://localhost:8080/api/addTask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
-      });
-      const result = await response.json();
-      console.log('Success:', result);
+      const result = await addTask(form);
+      console.log('Success:', result.data);
       alert('添加成功！');
     } catch (error) {
       console.error('Error:', error);

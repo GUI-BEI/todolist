@@ -159,6 +159,7 @@
                 <option value="3">高</option>
                 <option value="2">中</option>
                 <option value="1">低</option>
+            </select>
         </div>
 
         <div class="inputBar">
@@ -286,7 +287,6 @@
                 console.log('Success:', result);
                 console.log('code:', result.code);
                 console.log('message:', result.message);   
-                window.location.href = 'http://127.0.0.1:5500/MainInterface.html';
                 // 可以在这里处理后端返回的数据，例如显示成功消息
         })
         .catch(error => {
