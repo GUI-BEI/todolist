@@ -1,94 +1,94 @@
 <template>
   <div class="main-interface">
-    <div class="schedule-list">
-      <div 
-        v-for="task in tasks" 
-        :key="task.id" 
-        class="schedule-item"
-      >
-        <div 
-          class="schedule-content" 
-          :style="{ 
-            width: getTaskWidth(task.start, task.end) + '%', 
-            marginLeft: getTaskOffset(task.start) + '%' 
-          }"
-        >
-          {{ formatDate(task.start) }}->{{ formatDate(task.end) }} {{ task.title }}:{{ task.description }}
-        </div>
-      </div>
-    </div>
+    <DayPilotScheduler 
+      :config="schedulerConfig" 
+      ref="schedulerRef" 
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { DayPilot, DayPilotScheduler } from "@daypilot/daypilot-lite-vue";
 
-const tasks = ref([]);
-const today = new Date();
-
-// --- 核心算法逻辑 (直接从你原来的脚本搬过来并适配) ---
-
-// 1. 获取本周第一天
-const getFirstWeekDate = (date) => {
-  const firstDay = new Date(date);
-  let diff = date.getDay() === 0 ? -6 : 1 - date.getDay();
-  firstDay.setDate(date.getDate() + diff);
-  return firstDay;
+const getMondayOfCurrentWeek = () => {
+  const today = new Date();
+  // 获取本地时间的年、月、日
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const date = today.getDate();
+  
+  // 创建本地日期对象（不涉及UTC转换）
+  const localToday = new Date(year, month, date);
+  const day = localToday.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  
+  const monday = new Date(year, month, date + diff);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
 };
 
-// 2. 计算宽度 (%)
-const getTaskWidth = (startDate, endDate) => {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const firstDay = getFirstWeekDate(today);
-  const endDay = new Date(firstDay);
-  endDay.setDate(firstDay.getDate() + 6);
+const schedulerRef = ref(null);
 
-  const actualStart = new Date(Math.max(start, firstDay));
-  const actualEnd = new Date(Math.min(end, endDay));
+const schedulerConfig = ref({
+  // 核心：使用 Days 视图，每一列代表一天
+  viewType: "Days",
+  days: 7, // 显示7天
+  scale: "Day",
+
+  cellWidth: 150,
   
-  if (actualStart > actualEnd) return 0;
-
-  const diffDays = Math.ceil((actualEnd - actualStart) / (1000 * 60 * 60 * 24)) + 1;
-  return diffDays * 14; // 每个单位 14%
-};
-
-// 3. 计算左偏移 (%)
-const getTaskOffset = (startDate) => {
-  const start = new Date(startDate);
-  const firstDay = getFirstWeekDate(today);
+  // 设置每一行的行高，方便横向排列
+  rowHeight: 60,
+  headerHeight: 30,
   
-  // 如果任务开始时间早于本周第一天，偏移为 0
-  if (start < firstDay) return 0;
-  
-  const dayIndex = (start.getDay() + 6) % 7;
-  return dayIndex * 14;
-};
+  // 启用事件拖拽或调整大小（可选）
+  onEventClick: (args) => {
+    console.log("点击任务: ", args.e.data());
+  }
+});
 
-// 4. 数据获取
 const fetchTasks = async () => {
   try {
     const res = await fetch('http://localhost:8080/api/getTasks');
     const result = await res.json();
     if (result.code === 200) {
-      tasks.value = result.data;
+      // 映射数据到 Scheduler
+      // 注意：Scheduler 需要 resource 字段，如果不需要分组，可以统一设为默认资源
+      const events = result.data.map(task => ({
+        id: task.id,
+        resource: "A", // Scheduler 必须有一个资源 ID
+        text: task.title,
+        start: task.start,
+        end: task.end,
+        backColor: "#5c83d8" 
+      }));
+
+      // 更新资源和事件
+      schedulerRef.value.control.update({
+        resources: [{ name: "我的任务", id: "A" }],
+        events: events
+      });
     }
   } catch (err) {
     console.error('获取任务失败', err);
   }
 };
 
-const formatDate = (dateStr) => {
-  if (!dateStr) return '';
-  const parts = dateStr.split('-');
-  return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
-};
-
 onMounted(() => {
+  const monday = getMondayOfCurrentWeek();
+  schedulerConfig.value.startDate = new DayPilot.Date(monday, true);
+  if (schedulerRef.value) {
+    schedulerRef.value.control.update();
+  }
+
   fetchTasks();
 });
 </script>
 
 <style scoped>
-/* 这里填入你原来 .css 里的样式，加上 scoped 关键字 */
+.main-interface {
+  width: 100%;
+  overflow-x: auto;
+}
 </style>
