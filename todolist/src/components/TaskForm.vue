@@ -14,7 +14,7 @@
 
         <div class="inputBar">
           <span>priority</span>
-          <select  class="priority" v-model="form.priority">
+          <select  style="border-color: rgb(114, 130, 156);" class="priority" v-model="form.priority">
             <option value="3">高</option>
             <option value="2">中</option>
             <option value="1">低</option>
@@ -115,6 +115,8 @@ const submitTask = async () => {
   transition: all 0.2s;
   /* 圆角设置，左上尖，其余三个圆 */
   border-radius: 0px 15px 15px 15px;
+  /* 边框颜色 */
+  border-color: rgb(114, 130, 156);
   /* 宽度 */
   width: 60vw;
   /* 高度 */
@@ -162,17 +164,19 @@ input[type="date"] {
   border-radius: 20px;
   /* 背景颜色 */
   background-color: rgb(231, 235, 242);
+  /* 边框颜色 */
+  border-color: rgb(114, 130, 156);
 }
 
 /* 激活状态的样式 */
 .addBtn:active {
-  border-color: rgb(19, 24, 41);
-  background-color: rgba(208, 212, 218, 0.616)
+  border-color: rgb(106, 121, 145);
+  background-color: rgba(220, 224, 234, 0.616)
 }
 
 .content-wrapper {
   /* 背景颜色 */
-  background: rgb(230, 234, 249);
+  background: rgb(255, 255, 255);
   min-height: 100%;
   /* flex布局 */
   display: flex;

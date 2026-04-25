@@ -3,6 +3,8 @@ import MainInterface from '../views/MainInterface.vue'
 import TaskForm from '../components/TaskForm.vue'
 import HistoryPage from '../components/HistoryPage.vue'
 import Login from '../components/Login.vue'
+import Sign from '../components/Sign.vue'
+import Settings from '../components/Settings.vue'
 
 // 如果不希望用户在未登录的情况下访问/ /add等界面,可以在此处添加"路由守卫"
 
@@ -20,6 +22,14 @@ const router = createRouter({
     { 
       path: '/history', 
       component: HistoryPage, 
+    },
+    { 
+      path: '/sign', 
+      component: Sign, 
+    },
+    { 
+      path: '/settings', 
+      component: Settings, 
     },
     { 
       path: '/login', 
