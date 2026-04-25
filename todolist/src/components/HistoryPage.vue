@@ -102,7 +102,7 @@ onMounted(fetchAllTasks);
 
 .content-wrapper{
     /* 背景颜色 */
-    background: rgb(230, 234, 249);
+    background: rgb(245, 247, 254);
     min-height: 100%;
     /* flex布局 */
     display: flex;

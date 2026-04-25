@@ -68,8 +68,8 @@ const handleLogin = async () => {
 
 <style scoped>
 .login-wrapper {
-  background: rgb(230, 234, 249);
-  min-height: 100vh;
+  background: rgb(253, 253, 255);
+  min-height: 80vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -81,7 +81,7 @@ const handleLogin = async () => {
   background: white;
   padding: 40px;
   border-radius: 20px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 25px rgba(25, 59, 185, 0.1);
   width: 100%;
   max-width: 400px;
 }
