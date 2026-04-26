@@ -1,94 +1,859 @@
 <template>
   <div class="main-interface">
-    <div class="schedule-list">
-      <div 
-        v-for="task in tasks" 
-        :key="task.id" 
-        class="schedule-item"
-      >
-        <div 
-          class="schedule-content" 
-          :style="{ 
-            width: getTaskWidth(task.start, task.end) + '%', 
-            marginLeft: getTaskOffset(task.start) + '%' 
-          }"
-        >
-          {{ formatDate(task.start) }}->{{ formatDate(task.end) }} {{ task.title }}:{{ task.description }}
+    <!-- 功能栏 - 单行布局 -->
+    <div class="toolbar">
+
+        <button class="nav-btn" @click="goToPreviousWeek">< 上周</button>
+
+        <div class="search-box">
+          <input 
+            type="text" 
+            v-model="searchKeyword" 
+            placeholder="搜索任务..."
+            @input="handleSearch"
+            @keyup.enter="fetchTasks"
+          />
+          <button class="search-btn" @click="fetchTasks">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="10" cy="10" r="7"/>
+              <line x1="15" y1="15" x2="21" y2="21"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="filter-buttons">
+          <button 
+            v-for="filter in filters" 
+            :key="filter.value"
+            :class="['filter-btn', { active: currentFilter === filter.value }]"
+            @click="handleFilterChange(filter.value)"
+          >
+            {{ filter.label }}
+          </button>
+        </div>
+
+          <button class="nav-btn" @click="goToNextWeek">下周 ></button>
+      
+    </div>
+
+    <DayPilotScheduler 
+      :config="schedulerConfig" 
+      ref="schedulerRef" 
+    />
+
+        <!-- 弹窗遮罩层 -->
+    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>编辑任务</h3>
+          <button class="close-btn" @click="closeModal">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="inputBar">
+            <label>标题</label>
+            <input type="text" v-model="editingTask.title" placeholder="请输入标题">
+          </div>
+
+          <div class="inputBar">
+            <label>描述</label>
+            <textarea v-model="editingTask.description" placeholder="请输入描述" rows="3"></textarea>
+          </div>
+
+          <div class="inputBar">
+            <label>优先级</label>
+            <select v-model="editingTask.priority">
+              <option :value="3">🔴 高</option>
+              <option :value="2">🟡 中</option>
+              <option :value="1">🟢 低</option>
+            </select>
+          </div>
+
+          <div class="inputBar">
+            <label>开始日期</label>
+            <input type="date" v-model="editingTask.start">
+          </div>
+
+          <div class="inputBar">
+            <label>结束日期</label>
+            <input type="date" v-model="editingTask.end">
+          </div>
+
+          <div class="inputBar">
+            <label>状态</label>
+            <div class="checkbox-group">
+              <input type="checkbox" v-model="editingTask.completed">
+              <span>已完成</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="cancel-btn" @click="closeModal">取消</button>
+          <button class="save-btn" @click="saveTaskChanges">保存修改</button>
         </div>
       </div>
     </div>
+
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
+import { DayPilot, DayPilotScheduler } from "@daypilot/daypilot-lite-vue";
 
-const tasks = ref([]);
-const today = new Date();
-
-// --- 核心算法逻辑 (直接从你原来的脚本搬过来并适配) ---
-
-// 1. 获取本周第一天
-const getFirstWeekDate = (date) => {
-  const firstDay = new Date(date);
-  let diff = date.getDay() === 0 ? -6 : 1 - date.getDay();
-  firstDay.setDate(date.getDate() + diff);
-  return firstDay;
+// 动态计算列宽
+const calculateCellWidth = () => {
+  const width = window.innerWidth;
+  return width / 7.1;
 };
 
-// 2. 计算宽度 (%)
-const getTaskWidth = (startDate, endDate) => {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const firstDay = getFirstWeekDate(today);
-  const endDay = new Date(firstDay);
-  endDay.setDate(firstDay.getDate() + 6);
+const currentCellWidth = ref(calculateCellWidth());
 
-  const actualStart = new Date(Math.max(start, firstDay));
-  const actualEnd = new Date(Math.min(end, endDay));
-  
-  if (actualStart > actualEnd) return 0;
-
-  const diffDays = Math.ceil((actualEnd - actualStart) / (1000 * 60 * 60 * 24)) + 1;
-  return diffDays * 14; // 每个单位 14%
-};
-
-// 3. 计算左偏移 (%)
-const getTaskOffset = (startDate) => {
-  const start = new Date(startDate);
-  const firstDay = getFirstWeekDate(today);
-  
-  // 如果任务开始时间早于本周第一天，偏移为 0
-  if (start < firstDay) return 0;
-  
-  const dayIndex = (start.getDay() + 6) % 7;
-  return dayIndex * 14;
-};
-
-// 4. 数据获取
-const fetchTasks = async () => {
-  try {
-    const res = await fetch('http://localhost:8080/api/getTasks');
-    const result = await res.json();
-    if (result.code === 200) {
-      tasks.value = result.data;
+const handleResize = () => {
+  const newWidth = calculateCellWidth();
+  if (newWidth !== currentCellWidth.value) {
+    currentCellWidth.value = newWidth;
+    if (schedulerRef.value) {
+      schedulerRef.value.control.update({ cellWidth: newWidth });
     }
-  } catch (err) {
-    console.error('获取任务失败', err);
   }
 };
 
-const formatDate = (dateStr) => {
-  if (!dateStr) return '';
-  const parts = dateStr.split('-');
-  return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+// 筛选配置
+const filters = [
+  { label: '所有', value: 'all' },
+  { label: '高', value: '3' },
+  { label: '中', value: '2' },
+  { label: '低', value: '1' }
+];
+
+// 状态
+const currentFilter = ref('all');
+const searchKeyword = ref('');
+const currentTasks = ref([]);
+const schedulerRef = ref(null);
+const currentStartDate = ref(null); // 当前视图的起始日期
+let searchDebounceTimer = null;
+
+// 弹窗相关状态
+const showModal = ref(false);
+const editingTask = ref({
+  id: null,
+  title: '',
+  description: '',
+  priority: 3,
+  start: '',
+  end: '',
+  completed: false
+});
+
+// 日期工具函数
+const getMondayOfCurrentWeek = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const date = today.getDate();
+  
+  const localToday = new Date(year, month, date);
+  const day = localToday.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  
+  const monday = new Date(year, month, date + diff);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+};
+
+// 切换到上周
+const goToPreviousWeek = () => {
+  if (!currentStartDate.value) return;
+  const newDate = new Date(currentStartDate.value);
+  newDate.setDate(newDate.getDate() - 7);
+  currentStartDate.value = newDate;
+  updateSchedulerStartDate();
+  fetchTasks();
+};
+
+// 切换到下周
+const goToNextWeek = () => {
+  if (!currentStartDate.value) return;
+  const newDate = new Date(currentStartDate.value);
+  newDate.setDate(newDate.getDate() + 7);
+  currentStartDate.value = newDate;
+  updateSchedulerStartDate();
+  fetchTasks();
+};
+
+// 更新 scheduler 的起始日期
+const updateSchedulerStartDate = () => {
+  if (schedulerRef.value && currentStartDate.value) {
+    schedulerRef.value.control.update({
+      startDate: new DayPilot.Date(currentStartDate.value, true)
+    });
+  }
+};
+
+// 优先级配置（仅用于前端显示）
+const priorityConfig = {
+  3: { name: '高', color: '#ee3f3f', bgColor: '#ffebee', barColor: '#ee3f3fb8' },
+  2: { name: '中', color: '#f55515', bgColor: '#fff3e0', barColor: '#f55515eb' },
+  1: { name: '低', color: '#4caf50', bgColor: '#e8f5e9', barColor: '#6fbe90' }
+};
+
+// 显示消息的辅助函数（替代 args.control.message）
+const showMessage = (text, isError = false) => {
+  // 创建一个临时提示框
+  const msg = document.createElement('div');
+  msg.textContent = text;
+  msg.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: ${isError ? '#f44336' : '#4caf50'};
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    z-index: 10000;
+    font-size: 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    animation: fadeOut 2s ease forwards;
+  `;
+  document.body.appendChild(msg);
+  
+  // 2秒后自动消失
+  setTimeout(() => {
+    msg.remove();
+  }, 2000);
+};
+
+// 添加动画样式
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes fadeOut {
+    0% { opacity: 1; }
+    70% { opacity: 1; }
+    100% { opacity: 0; visibility: hidden; }
+  }
+`;
+document.head.appendChild(style);
+
+// 打开编辑弹窗
+const openEditModal = (task) => {
+  editingTask.value = {
+    id: task.id,
+    title: task.title,
+    description: task.description || '',
+    priority: task.priority,
+    start: task.start,
+    end: task.end,
+    completed: task.completed || false
+  };
+  showModal.value = true;
+};
+
+// 关闭弹窗（不保存）
+const closeModal = () => {
+  showModal.value = false;
+  editingTask.value = {
+    id: null,
+    title: '',
+    description: '',
+    priority: 3,
+    start: '',
+    end: '',
+    completed: false
+  };
+};
+
+// 保存修改
+const saveTaskChanges = async () => {
+  try {
+    const updatedTask = {
+      id: editingTask.value.id,
+      title: editingTask.value.title,
+      description: editingTask.value.description,
+      priority: editingTask.value.priority,
+      start: editingTask.value.start,
+      end: editingTask.value.end,
+      completed: editingTask.value.completed
+    };
+
+    const res = await fetch('http://localhost:8080/api/updateTask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedTask)
+    });
+
+    const result = await res.json();
+    
+    if (result.code !== 200) {
+      throw new Error(result.message || "保存失败");
+    }
+    
+    showMessage("保存成功");
+    closeModal();
+    await fetchTasks();  // 刷新列表
+    
+  } catch (err) {
+    console.error("保存失败", err);
+    showMessage("保存失败", true);
+  }
+};
+
+const renderScheduler = (tasks) => {
+  if (!schedulerRef.value) return;
+
+  const resources = tasks.map(task => ({
+    name: task.title,
+    id: `row_${task.id}`,
+    // 保留完整的事务信息，供后续使用
+    description: task.description,
+    completed: task.completed,
+    priority: task.priority
+  }));
+
+  const events = tasks.map(task => ({
+    id: task.id,
+    resource: `row_${task.id}`,
+    text: task.title,
+    start: task.start,
+    end: task.end,
+    priority: task.priority,
+    description: task.description,  // 保留描述
+    completed: task.completed       // 保留完成状态
+  }));
+
+  schedulerRef.value.control.update({
+    resources: resources,
+    events: events,
+    cellWidth: currentCellWidth.value
+  });
+};
+
+// Scheduler 配置
+const schedulerConfig = ref({
+  viewType: "Days",
+  days: 7,
+  scale: "Day",
+  cellWidth: 200,
+  rowHeaderWidth: 0,  // 必须大于0才能拖拽
+  eventHeight: 80,
+  headerHeight: 40,
+  treeEnabled: false,
+  eventMoveHandling: "Update",  // 开启拖拽移动
+
+  onBeforeTimeHeaderRender: (args) => {
+    const headerDate = args.header.start.getDatePart();
+    const today = new DayPilot.Date().getDatePart();
+    if (headerDate === today) {
+      args.header.backColor = "rgb(230, 234, 249)";
+    }
+  },
+
+  onBeforeEventRender: (args) => {
+    const priority = args.data.priority;
+    const config = priorityConfig[priority] || priorityConfig[1];
+    const completed = args.data.completed;
+    
+    args.data.barColor = config.barColor;
+    args.data.backColor = config.bgColor;
+    args.data.fontColor = "#333333";
+
+    // 根据完成状态调整样式
+    if (completed) {
+      args.data.backColor = "#e0e0e0";  // 已完成的任务用灰色背景
+      args.data.fontColor = "#888888";
+    }
+    
+    args.data.text = args.data.text;
+  },
+
+  // 点击事件：打开编辑弹窗
+  onEventClick: (args) => {
+    const task = {
+      id: args.e.id(),
+      title: args.e.text(),
+      description: args.e.data.description,
+      priority: args.e.data.priority,
+      start: args.e.start().toString(),
+      end: args.e.end().toString(),
+      completed: args.e.data.completed
+    };
+    openEditModal(task);
+  },
+
+  // 核心：禁止拖拽到其他行
+  onEventMoving: (args) => {
+    // 检查是否拖拽到了不同的资源行
+    if (args.newResource !== args.e.resource()) {
+      args.allowed = false;
+      showMessage("不能将任务移动到其他行", true);
+    }
+  },
+
+  onEventMoved: async (args) => {
+    // 再次检查跨行（双重保险）
+    if (args.newResource !== args.e.resource()) {
+      showMessage("不能将任务移动到其他行", true);
+      await fetchTasks();  // 刷新恢复
+      return;
+    }
+
+    // 只更新时间，不更新行
+    try {
+      const updatedTask = {
+        id: args.e.id(),
+        start: args.newStart.toString(),
+        end: args.newEnd.toString()
+      };
+
+      const res = await fetch('http://localhost:8080/api/updateTaskTime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedTask)
+      });
+
+      const result = await res.json();
+      
+      if (result.code !== 200) {
+        throw new Error(result.message || "同步失败");
+      }
+      
+      showMessage("同步成功");
+      
+      // 更新本地数据
+      const taskIndex = currentTasks.value.findIndex(t => t.id === args.e.id());
+      if (taskIndex !== -1) {
+        currentTasks.value[taskIndex].start = args.newStart.toString();
+        currentTasks.value[taskIndex].end = args.newEnd.toString();
+      }
+
+    } catch (err) {
+      console.error("更新失败", err);
+      showMessage("同步失败，已回滚", true);
+      await fetchTasks();  // 刷新恢复原状
+    }
+  }
+});
+
+// 添加一个获取任务详情的方法（可选）
+const getTaskDetails = (taskId) => {
+  const task = currentTasks.value.find(t => t.id === taskId);
+  if (task) {
+    console.log({
+      title: task.title,
+      description: task.description,
+      priority: task.priority,
+      start: task.start,
+      end: task.end,
+      completed: task.completed
+    });
+  }
+  return task;
+};
+
+const fetchTasks = async () => {
+  if (!schedulerRef.value) return;
+
+  try {
+    const params = new URLSearchParams();
+    if (currentFilter.value !== 'all') {
+      params.append('priority', currentFilter.value);
+    }
+    if (searchKeyword.value.trim()) {
+      params.append('keyword', searchKeyword.value.trim());
+    }
+    if (currentStartDate.value) {
+      const startDate = new Date(currentStartDate.value);
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 6);
+      params.append('startDate', startDate.toISOString().split('T')[0]);
+      params.append('endDate', endDate.toISOString().split('T')[0]);
+    }
+    
+    const url = `http://localhost:8080/api/getTasks${params.toString() ? '?' + params.toString() : ''}`;
+    const res = await fetch(url);
+    const result = await res.json();
+    
+    if (result.code === 200) {
+      currentTasks.value = result.data;
+      renderScheduler(currentTasks.value);
+    } else {
+      throw new Error("后端返回错误");
+    }
+  } catch (err) {
+    console.error('获取任务失败，使用测试数据', err);
+    
+    // 测试数据（包含所有字段）
+    const testTasks = [
+      { 
+        id: 1, 
+        title: '完成项目报告', 
+        description: '数据分析', 
+        priority: 3, 
+        start: '2026-04-20', 
+        end: '2026-04-22', 
+        completed: false 
+      },
+      { 
+        id: 2, 
+        title: '拼豆', 
+        description: '拼2778个豆', 
+        priority: 2, 
+        start: '2026-04-22', 
+        end: '2026-04-24', 
+        completed: false 
+      },
+      { 
+        id: 3, 
+        title: '拼拼豆', 
+        description: '拼2778个豆', 
+        priority: 1, 
+        start: '2026-04-26', 
+        end: '2026-04-26', 
+        completed: false 
+      }
+    ];
+    currentTasks.value = testTasks;
+    renderScheduler(currentTasks.value);
+  }
+};
+
+// 处理筛选变化
+const handleFilterChange = (value) => {
+  currentFilter.value = value;
+  fetchTasks();
+};
+
+// 处理搜索（带防抖）
+const handleSearch = () => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    fetchTasks();
+  }, 500);
 };
 
 onMounted(() => {
+  currentStartDate.value = getMondayOfCurrentWeek();
+  schedulerConfig.value.startDate = new DayPilot.Date(currentStartDate.value, true);
+
+  window.addEventListener('resize', handleResize);
+
   fetchTasks();
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
+});
+
+// 暴露方法给父组件
+defineExpose({
+  refreshTasks: fetchTasks,
+  getTaskDetails,
+  currentTasks
 });
 </script>
 
 <style scoped>
-/* 这里填入你原来 .css 里的样式，加上 scoped 关键字 */
+.main-interface {
+  width: 100%;
+  overflow-x: auto;
+  background: rgb(255, 255, 255);
+  min-height: 100%;
+}
+
+/* 工具栏 - 单行布局 */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: white;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  /* 关键修改：确保不换行，且均匀分布 */
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
+
+/* 导航按钮 */
+.nav-btn {
+  padding: 6px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0; /* 防止被压缩 */
+}
+
+.nav-btn:hover {
+  background: #5c83d8;
+  color: white;
+  border-color: #5c83d8;
+}
+
+/* 搜索框容器 */
+.search-box {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  /* 移除 min-width，让它可以自由伸缩 */
+}
+
+.search-box input {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  width: 220px;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.search-box input:focus {
+  border-color: #5c83d8;
+  box-shadow: 0 0 0 2px rgba(92, 131, 216, 0.2);
+}
+
+.search-btn {
+  padding: 6px 12px;
+  background: #bbc9e9;
+  color: rgb(59, 85, 140);
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.search-btn:hover {
+  background: #456f9d;
+}
+
+/* 筛选按钮容器 */
+.filter-buttons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.filter-btn {
+  padding: 6px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  min-width: 52px;
+  white-space: nowrap;
+}
+
+.filter-btn:hover {
+  background: #f0f0f0;
+}
+
+.filter-btn.active {
+  background: #5c83d8;
+  color: white;
+  border-color: #5c83d8;
+}
+
+/* 弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 35px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #2c4c96;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: #999;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.inputBar {
+  margin-bottom: 20px;
+}
+
+.inputBar label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.inputBar input,
+.inputBar textarea,
+.inputBar select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: all 0.2s;
+}
+
+.inputBar input:focus,
+.inputBar textarea:focus,
+.inputBar select:focus {
+  outline: none;
+  border-color: #5c83d8;
+  box-shadow: 0 0 0 2px rgba(92, 131, 216, 0.1);
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkbox-group input {
+  width: auto;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #eee;
+}
+
+.cancel-btn {
+  padding: 10px 20px;
+  background: #f0f0f0;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: #e0e0e0;
+}
+
+.save-btn {
+  padding: 10px 20px;
+  background: #5c83d8;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.save-btn:hover {
+  background: #456f9d;
+}
+
+/* 响应式：屏幕过窄时允许换行 */
+@media (max-width: 800px) {
+  .toolbar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .search-box {
+    order: 1;
+  }
+  
+  .filter-buttons {
+    order: 2;
+  }
+  
+  .nav-btn:first-child {
+    order: 0;
+  }
+  
+  .nav-btn:last-child {
+    order: 3;
+  }
+}
+
+/* DayPilot 样式 */
+:deep(.scheduler_default_event_inner) {
+  border-radius: 0 0 12px 12px !important;
+  padding: 6px 10px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  font-weight: 500;
+}
+
+:deep(.scheduler_default_timeheader_cell) {
+  background-color: #f8f9fa !important;
+  border-bottom: 2px solid #dee2e6 !important;
+}
+
+:deep(.scheduler_default_timeheader_cell_inner) {
+  font-weight: 600 !important;
+  color: rgb(44, 76, 150) !important;
+  font-size: 14px;
+}
+
+/* 滚动条 */
+.main-interface::-webkit-scrollbar {
+  height: 8px;
+}
+
+.main-interface::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.main-interface::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
 </style>
