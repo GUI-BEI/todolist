@@ -1,125 +1,230 @@
 <template>
     <div class="content-wrapper">
-        <div ref="chartRef" class="chart-box"></div>
+        <div class="chart-container">
+            <div ref="chartRef" class="chart-box"></div>
+            <div class="chart-note">本周任务统计</div>
+        </div>
 
         <div class="task-list">
             <h3>已完成任务列表</h3>
-
+            <div v-if="completedTasks.length === 0" class="empty-tip">
+                暂无已完成任务
+            </div>
             <div v-for="task in completedTasks" :key="task.id" class="Card">
                 <h4 class="taskTitle">{{ task.title }}</h4>
-                <p class="taskDescription">{{ task.description }}</p>
+                <p class="taskDescription">{{ task.description || '无描述' }}</p>
                 <p class="taskPriority">优先级: {{ priorityMap[task.priority] }}</p>
                 <div class="taskTime">
-                    <span class="taskStart">{{ task.start }}</span>
+                    <span class="taskStart">{{ formatDate(task.start) }}</span>
                     <span>-</span>
-                    <span class="taskEnd">{{ task.end }}</span>
+                    <span class="taskEnd">{{ formatDate(task.end) }}</span>
                 </div>
-                <p class="taskAction">{{ task.completed ? '已完成' : '进行中' }}</p>
             </div>
-
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch} from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import * as echarts from 'echarts';
+import { getTasks } from '@/api/task';
+import { useRouter } from 'vue-router';
 
-let allTasks = ref([]); // 存储从后端拿到的所有任务
-let chartRef = ref(null);
+const router = useRouter();
+const allTasks = ref([]);
+const chartRef = ref(null);
 const priorityMap = { 1: '🟢 低', 2: '🟡 中', 3: '🔴 高' };
 
-// 【核心】：利用计算属性自动过滤已完成任务
+// 所有已完成任务
 const completedTasks = computed(() => {
-  return allTasks.value.filter(t => {return t.completed === true;});
+    return allTasks.value.filter(task => task.completed === true);
 });
 
-// 计算统计数据用于饼图
-const stats = computed(() => {
-  const total = allTasks.value.length;
-  const finished = completedTasks.value.length;
-  return { finished, unfinished: total - finished };
+// 获取本周的任务（用于饼图）
+const thisWeekTasks = computed(() => {
+    const thisWeekRange = getThisWeekRange();
+    return allTasks.value.filter(task => {
+        const taskStart = new Date(task.start);
+        return taskStart >= thisWeekRange.start && taskStart <= thisWeekRange.end;
+    });
 });
 
-// 筛选出本周的任务
-const isWithinThisWeek = (dateStr) => {
-    const taskDate = new Date(dateStr);
+// 本周统计数据
+const thisWeekStats = computed(() => {
+    const total = thisWeekTasks.value.length;
+    const finished = thisWeekTasks.value.filter(t => t.completed === true).length;
+    return { finished, unfinished: total - finished, total };
+});
+
+// 获取本周的起止日期（周一到周日）
+const getThisWeekRange = () => {
     const today = new Date();
-    
-    // 获取今天是周几（0是周日，1是周一...6是周六）
     const dayOfWeek = today.getDay();
-    
-    // 计算本周一的日期
+    // 计算本周一（周一为第一天）
     const monday = new Date(today);
-    const diff = today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1); 
+    const diff = today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
     monday.setDate(diff);
-    monday.setHours(0, 0, 0, 0); // 时间归零，方便比较
-
-    // 比较：任务日期必须大于等于本周一，且小于等于今天
-    return taskDate >= monday && taskDate <= today;
+    monday.setHours(0, 0, 0, 0);
+    
+    // 计算本周日
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+    
+    return { start: monday, end: sunday };
 };
 
-const fetchAllTasks = async () => {
-  try {
-    const res = await fetch('http://localhost:8080/api/getTasks');
-    const data = await res.json();
-    if (data.code === 200) {
-      allTasks.value = data.data; // 假设后端返回 {code: 200, data: [...]}
-      initChart();
-    }
-  } catch (err) {
-    console.error('获取任务失败', err);
-    allTasks.value= [
-        { id: 1, title: '完成项目报告', description: '数据分析', priority: 3, start: '2026-04-08', end: '2026-04-10', completed: true },
-        { id: 2, title: '拼豆', description: '拼2778个豆', priority: 2, start: '2026-04-12', end: '2026-04-15', completed: true },
-        { id: 3, title: '拼拼豆', description: '拼2778个豆', priority: 1, start: '2026-04-12', end: '2026-04-14', completed: false }
-    ];
-    initChart();
-  }
+// 格式化日期显示
+const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    // 处理 "2026-04-30T00:00:00" 或 "2026-04-30 00:00:00" 格式
+    return dateStr.replace('T', ' ').slice(0, 16);
 };
 
+// 初始化饼图
 const initChart = () => {
-  const chart = echarts.init(chartRef.value);
-  chart.setOption({
-    title: { text: '本周任务完成占比', left: 'center' },
-    series: [{
-      type: 'pie',
-      data: [
-        { value: stats.value.finished, name: '已完成 ' + stats.value.finished },
-        { value: stats.value.unfinished, name: '未完成 ' + stats.value.unfinished }
-      ]
-    }]
-  });
+    if (!chartRef.value) return;
+    
+    const chart = echarts.init(chartRef.value);
+    const { finished, unfinished, total } = thisWeekStats.value;
+    
+    let option = {
+        tooltip: {
+            trigger: 'item',
+            formatter: '{b}: {d}% ({c}个)'
+        },
+        legend: {
+            orient: 'vertical',
+            left: 'left',
+            data: [
+                { name: '已完成', itemStyle: { color: '#4caf50' } },
+                { name: '未完成', itemStyle: { color: '#ff9800' } }
+            ]
+        },
+        series: [
+            {
+                name: '本周任务统计',
+                type: 'pie',
+                radius: '55%',
+                center: ['50%', '50%'],
+                data: [
+                    { value: finished, name: '已完成', itemStyle: { color: '#4caf50' } },
+                    { value: unfinished, name: '未完成', itemStyle: { color: '#ff9800' } }
+                ],
+                emphasis: {
+                    scale: true
+                },
+                label: {
+                    show: true,
+                    formatter: '{b}: {d}%'
+                }
+            }
+        ]
+    };
+    
+    // 如果本周没有任务，显示提示
+    if (total === 0) {
+        option = {
+            title: {
+                text: '本周暂无任务',
+                left: 'center',
+                top: 'center',
+                textStyle: {
+                    color: '#999',
+                    fontSize: 14
+                }
+            },
+            series: []
+        };
+    }
+    
+    chart.setOption(option);
+    
+    // 响应窗口大小变化
+    window.addEventListener('resize', () => {
+        chart.resize();
+    });
 };
 
-onMounted(fetchAllTasks);
+// 获取所有任务
+const fetchAllTasks = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        router.push('/login');
+        return;
+    }
+    
+    try {
+        const result = await getTasks();
+        if (result.code === 200) {
+            allTasks.value = result.data;
+            initChart();
+        } else {
+            throw new Error(result.message || '获取任务失败');
+        }
+    } catch (err) {
+        console.error('获取任务失败', err);
+        allTasks.value = [];
+        initChart();
+    }
+};
 
+onMounted(() => {
+    fetchAllTasks();
+});
 </script>
 
 <style scoped>
-.chart-box { height: 300px; width: 100%; }
-.task-item { border-bottom: 1px solid #ccc; padding: 10px; }
+.chart-box {
+    height: 300px;
+    width: 100%;
+}
 
-.content-wrapper{
-    /* 背景颜色 */
+.chart-container {
+    background: white;
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.chart-note {
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+.content-wrapper {
     background: rgb(245, 247, 254);
     min-height: 100%;
-    /* flex布局 */
     display: flex;
     flex-direction: column;
-    /* 左对齐 */
-    justify-content: left;
-    /* 内边距 */
     padding: 5%;
-    /* 字体 默认值 */
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+.task-list h3 {
+    margin-bottom: 16px;
+    color: #2c4c96;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.empty-tip {
+    text-align: center;
+    color: #999;
+    padding: 40px;
+    background: white;
+    border-radius: 15px;
+    font-size: 16px;
 }
 
 .Card {
     background-color: white;
     border-radius: 15px;
-    padding: 1% 3% 1% 3%;
-    margin-top: 10px;
+    padding: 16px 24px;
+    margin-top: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     transition: all 0.2s;
 }
@@ -130,36 +235,37 @@ onMounted(fetchAllTasks);
 }
 
 .taskTitle {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 600;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
+    color: #333;
 }
 
 .taskDescription {
-    color: rgb(69, 111, 157);
-    margin-bottom: 5px;
-    line-height: 1.0;
+    color: #666;
+    margin-bottom: 8px;
+    font-size: 14px;
+    line-height: 1.4;
 }
 
 .taskPriority {
-    padding: 3px;
+    padding: 4px 0;
     border-radius: 15px;
-    font-size: 15px;
-    font-weight: 550;
-    line-height: 1.0;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 8px;
 }
 
 .taskTime {
     display: flex;
     align-items: center;
-    gap: 3%;
-    line-height: 1.5;
+    gap: 8px;
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 8px;
 }
 
-.taskAction {
-    font-weight: 600;
-    line-height: 1.0;
+.taskStart, .taskEnd {
+    font-family: monospace;
 }
-
 </style>
-

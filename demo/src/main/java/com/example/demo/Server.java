@@ -1,7 +1,7 @@
 package com.example.demo;
 
 import org.springframework.stereotype.Service;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,8 +39,8 @@ public class Server {
 
     // 获取筛选后的任务
     public Result<List<EventItem>> getTasksWithFilter(Long userId, Integer priority,
-                                                      String keyword, LocalDate startDate,
-                                                      LocalDate endDate) {
+                                                      String keyword, LocalDateTime startDate,
+                                                      LocalDateTime endDate) {
         List<EventItem> tasks = repository.findByUserId(userId);
 
         // 按优先级筛选
@@ -59,7 +59,7 @@ public class Server {
                     .collect(Collectors.toList());
         }
 
-        // 按日期范围筛选
+        // 按日期时间范围筛选
         if (startDate != null && endDate != null) {
             tasks = tasks.stream()
                     .filter(t -> !(t.getEnd().isBefore(startDate) || t.getStart().isAfter(endDate)))
@@ -110,7 +110,7 @@ public class Server {
     }
 
     // 单独更新时间
-    public Result<EventItem> updateTaskTime(Long id, LocalDate newStart, LocalDate newEnd, Long userId) {
+    public Result<EventItem> updateTaskTime(Long id, LocalDateTime newStart, LocalDateTime newEnd, Long userId) {
         Optional<EventItem> taskOpt = repository.findById(id);
         if (taskOpt.isEmpty()) {
             return Result.fail(404, "任务不存在");
@@ -209,6 +209,20 @@ public class Server {
         return Result.success(user);
     }
 
+    // 验证 token 并返回用户ID
+    public Result<Long> verifyTokenAndGetId(String token) {
+        if (token == null || token.trim().isEmpty()) {
+            return Result.fail(401, "未提供token");
+        }
+
+        Optional<User> userOpt = userRepository.findByToken(token);
+        if (userOpt.isEmpty()) {
+            return Result.fail(401, "token无效或已过期");
+        }
+
+        return Result.success(userOpt.get().getId());
+    }
+
     // 更新用户信息
     public Result<User> updateUser(Long userId, String newUsername, String newPassword) {
         Optional<User> userOpt = userRepository.findById(userId);
@@ -248,8 +262,10 @@ public class Server {
         }
 
         User user = userOpt.get();
-        LocalDate today = LocalDate.now();
-        boolean signedToday = user.getLastSignDate() != null && user.getLastSignDate().equals(today);
+        LocalDateTime today = LocalDateTime.now();
+        // 签到只比较日期部分
+        boolean signedToday = user.getLastSignDate() != null &&
+                user.getLastSignDate().toLocalDate().equals(today.toLocalDate());
 
         return Result.success(new SignStatusDTO(user.getTotalDays(), signedToday));
     }
@@ -262,13 +278,15 @@ public class Server {
         }
 
         User user = userOpt.get();
-        LocalDate today = LocalDate.now();
+        LocalDateTime today = LocalDateTime.now();
 
-        if (user.getLastSignDate() != null && user.getLastSignDate().equals(today)) {
+        if (user.getLastSignDate() != null &&
+                user.getLastSignDate().toLocalDate().equals(today.toLocalDate())) {
             return Result.fail(400, "今日已经签到过了");
         }
 
-        if (user.getLastSignDate() != null && user.getLastSignDate().plusDays(1).equals(today)) {
+        if (user.getLastSignDate() != null &&
+                user.getLastSignDate().toLocalDate().plusDays(1).equals(today.toLocalDate())) {
             user.setTotalDays(user.getTotalDays() + 1);
         } else {
             user.setTotalDays(1);

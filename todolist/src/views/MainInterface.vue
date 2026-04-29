@@ -70,13 +70,13 @@
           </div>
 
           <div class="inputBar">
-            <label>开始日期</label>
-            <input type="date" v-model="editingTask.start">
+            <label>开始时间</label>
+            <input type="datetime-local" v-model="editingTask.start">
           </div>
 
           <div class="inputBar">
-            <label>结束日期</label>
-            <input type="date" v-model="editingTask.end">
+            <label>结束时间</label>
+            <input type="datetime-local" v-model="editingTask.end">
           </div>
 
           <div class="inputBar">
@@ -104,7 +104,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { DayPilot, DayPilotScheduler } from "@daypilot/daypilot-lite-vue";
-import { getFilteredTasks, getTasks, updateTaskTime } from '@/api/task';
+import { getFilteredTasks, getTasks, updateTaskTime, updateTask } from '@/api/task';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -247,13 +247,17 @@ document.head.appendChild(style);
 
 // 打开编辑弹窗
 const openEditModal = (task) => {
+  // 将 "2026-04-30T00:00:00" 转换为 "2026-04-30T00:00" 供 datetime-local 使用
+  const startValue = task.start ? task.start.replace(' ', 'T').slice(0, 16) : '';
+  const endValue = task.end ? task.end.replace(' ', 'T').slice(0, 16) : '';
+  
   editingTask.value = {
     id: task.id,
     title: task.title,
     description: task.description || '',
     priority: task.priority,
-    start: task.start,
-    end: task.end,
+    start: startValue,
+    end: endValue,
     completed: task.completed || false
   };
   showModal.value = true;
@@ -298,12 +302,16 @@ const closeModal = () => {
 // 保存修改
 const saveTaskChanges = async () => {
   try {
+    // datetime-local 的值是 "2026-04-30T00:00"，需要转换为 "2026-04-30 00:00:00"
+    const startDateTime = editingTask.value.start ? editingTask.value.start.replace('T', ' ') + ':00' : '';
+    const endDateTime = editingTask.value.end ? editingTask.value.end.replace('T', ' ') + ':00' : '';
+    
     const updatedTask = {
       title: editingTask.value.title,
       description: editingTask.value.description,
-      priority: editingTask.value.priority,
-      start: editingTask.value.start,
-      end: editingTask.value.end,
+      priority: parseInt(editingTask.value.priority),
+      start: startDateTime,
+      end: endDateTime,
       completed: editingTask.value.completed
     };
 
@@ -329,22 +337,35 @@ const renderScheduler = (tasks) => {
   const resources = tasks.map(task => ({
     name: task.title,
     id: `row_${task.id}`,
-    // 保留完整的事务信息，供后续使用
     description: task.description,
     completed: task.completed,
     priority: task.priority
   }));
 
-  const events = tasks.map(task => ({
-    id: task.id,
-    resource: `row_${task.id}`,
-    text: task.title,
-    start: task.start,
-    end: task.end,
-    priority: task.priority,
-    description: task.description,  // 保留描述
-    completed: task.completed       // 保留完成状态
-  }));
+  const events = tasks.map(task => {
+    // 确保日期格式正确
+    let startDate = task.start;
+    let endDate = task.end;
+    
+    // 如果日期包含空格，转换为 T
+    if (startDate && startDate.includes(' ')) {
+      startDate = startDate.replace(' ', 'T');
+    }
+    if (endDate && endDate.includes(' ')) {
+      endDate = endDate.replace(' ', 'T');
+    }
+    
+    return {
+      id: task.id,
+      resource: `row_${task.id}`,
+      text: task.title,
+      start: startDate,
+      end: endDate,
+      priority: task.priority,
+      description: task.description,
+      completed: task.completed
+    };
+  });
 
   schedulerRef.value.control.update({
     resources: resources,
@@ -422,10 +443,14 @@ const schedulerConfig = ref({
   }
 
   try {
+    // DayPilot 返回的格式是 "2026-04-30T00:00:00"，需要转换为 "2026-04-30 00:00:00"
+    let newStart = args.newStart.toString().replace('T', ' ');
+    let newEnd = args.newEnd.toString().replace('T', ' ');
+    
     const result = await updateTaskTime(
       args.e.id(),
-      args.newStart.toString(),
-      args.newEnd.toString()
+      newStart,
+      newEnd
     );
     
     if (result.code !== 200) {
@@ -433,12 +458,7 @@ const schedulerConfig = ref({
     }
     
     showMessage("同步成功");
-    
-    const taskIndex = currentTasks.value.findIndex(t => t.id === args.e.id());
-    if (taskIndex !== -1) {
-      currentTasks.value[taskIndex].start = args.newStart.toString();
-      currentTasks.value[taskIndex].end = args.newEnd.toString();
-    }
+    await fetchTasks();
 
   } catch (err) {
     console.error("更新失败", err);
@@ -467,7 +487,6 @@ const getTaskDetails = (taskId) => {
 const fetchTasks = async () => {
   if (!schedulerRef.value) return;
   
-  // 检查是否已登录
   const token = localStorage.getItem('token');
   if (!token) {
     router.push('/login');
@@ -493,8 +512,8 @@ const fetchTasks = async () => {
         const startDate = new Date(currentStartDate.value);
         const endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + 6);
-        params.startDate = startDate.toISOString().split('T')[0];
-        params.endDate = endDate.toISOString().split('T')[0];
+        params.startDate = startDate.toISOString().split('T')[0] + 'T00:00:00';
+        params.endDate = endDate.toISOString().split('T')[0] + 'T23:59:59';
       }
       
       result = await getFilteredTasks(params);
@@ -503,14 +522,18 @@ const fetchTasks = async () => {
     }
     
     if (result.code === 200) {
-      currentTasks.value = result.data;
+      // 转换日期格式：将 "2026-04-30 00:00:00" 转换为 "2026-04-30T00:00:00"
+      currentTasks.value = result.data.map(task => ({
+        ...task,
+        start: task.start ? task.start.replace(' ', 'T') : null,
+        end: task.end ? task.end.replace(' ', 'T') : null
+      }));
       renderScheduler(currentTasks.value);
     } else {
       throw new Error(result.message || "获取任务失败");
     }
   } catch (err) {
     console.error('获取任务失败', err);
-    // 不再使用测试数据，因为需要用户隔离
     currentTasks.value = [];
     renderScheduler(currentTasks.value);
   }
