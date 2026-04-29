@@ -6,13 +6,8 @@ import java.util.Optional;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
-
-    // 根据用户名查找用户
+    // 确保返回值是 Optional<User>，不要改成 User
     Optional<User> findByUsername(String username);
-
-    // 检查用户名是否存在
     boolean existsByUsername(String username);
-
-    // 根据 token 查找用户
     Optional<User> findByToken(String token);
 }

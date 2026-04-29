@@ -1,38 +1,30 @@
 package com.example.demo;
 
-import jakarta.persistence.*;
 import java.time.LocalDate;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
-@Entity
-@Table(name = "event_item")
+// 移除JPA实体注解，仅保留数据结构
 public class EventItem {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String title;
     private String description;
     private Integer priority;
 
-    @Column(name = "start_date")
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate start;
 
-    @Column(name = "end_date")
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate end;
 
     private String type;
     private Boolean completed = false;
 
-    // 新增：关联用户ID
-    @Column(name = "user_id", nullable = false)
+    // 关联用户ID（仍保留，用于逻辑关联）
     private Long userId;
 
     public EventItem() {}
 
-    // Getters and Setters
+    // 所有Getters and Setters 保持不变
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
