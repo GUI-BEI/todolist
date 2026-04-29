@@ -89,8 +89,11 @@
         </div>
 
         <div class="modal-footer">
-          <button class="cancel-btn" @click="closeModal">取消</button>
-          <button class="save-btn" @click="saveTaskChanges">保存修改</button>
+          <button class="delete-btn" @click="deleteTask">删除</button>
+          <div class="footer-right">
+            <button class="cancel-btn" @click="closeModal">取消</button>
+            <button class="save-btn" @click="saveTaskChanges">保存修改</button>
+          </div>
         </div>
       </div>
     </div>
@@ -250,6 +253,36 @@ const openEditModal = (task) => {
     completed: task.completed || false
   };
   showModal.value = true;
+};
+
+// 删除任务
+const deleteTask = async () => {
+  if (!editingTask.value.id) return;
+  
+  // 确认删除
+  const confirmed = confirm(`确定要删除任务「${editingTask.value.title}」吗？`);
+  if (!confirmed) return;
+  
+  try {
+    const res = await fetch('http://localhost:8080/api/deleteTask', {
+      method: 'DELETE',  // 使用 DELETE 方法
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: editingTask.value.id })
+    });
+    
+    const result = await res.json();
+    
+    if (result.code === 200) {
+      showMessage("删除成功");
+      closeModal();
+      await fetchTasks();  // 刷新列表
+    } else {
+      throw new Error(result.message || "删除失败");
+    }
+  } catch (err) {
+    console.error("删除失败", err);
+    showMessage("删除失败，请稍后重试", true);
+  }
 };
 
 // 关闭弹窗（不保存）
@@ -764,10 +797,26 @@ defineExpose({
 
 .modal-footer {
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+  justify-content: space-between;  /* 左右分布 */
+  align-items: center;
   padding: 16px 24px;
   border-top: 1px solid #eee;
+}
+
+.footer-right {
+  display: flex;
+  gap: 12px;
+}
+
+.delete-btn {
+  padding: 10px 20px;
+  background: #f04a3e;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
 }
 
 .cancel-btn {

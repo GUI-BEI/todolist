@@ -15,12 +15,9 @@
 
       <button class="loginBtn" @click="handleLogin">登录</button>
 
-      <div style="
-        display: flex; 
-        justify-content: flex-end;
-        margin-top: 5%;
-      ">
-        <button class="visitorLoginBtn">游客登录</button>
+      <div class="action-buttons">
+        <button class="registerBtn" @click="handleRegister">注册</button>
+        <button class="visitorLoginBtn" @click="handleVisitorLogin">游客登录</button>
       </div>
       
     </div>
@@ -51,6 +48,46 @@ const handleLogin = async () => {
     console.error('Error:', error);
     alert('登录失败！')
   }
+};
+
+// 注册函数
+const handleRegister = async () => {
+  if (!form.username || !form.password) {
+    alert('请输入用户名和密码');
+    return;
+  }
+
+  if (form.password.length < 6) {
+    alert('密码长度至少6位');
+    return;
+  }
+
+  try {
+    const response = await fetch('http://localhost:8080/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form)
+    });
+    const result = await response.json();
+    
+    if (result.code === 200) {
+      alert('注册成功！请登录');
+      // 清空密码，保留用户名方便登录
+      form.password = '';
+    } else {
+      alert(result.message || '注册失败');
+    }
+  } catch (error) {
+    console.error('注册请求错误:', error);
+    alert('服务器连接失败');
+  }
+};
+
+// 游客登录
+const handleVisitorLogin = () => {
+  // 游客可以直接进入，不需要后端验证
+  alert('以游客身份进入');
+  router.push('/');
 };
 </script>
 
@@ -103,17 +140,33 @@ const handleLogin = async () => {
   margin-top: 10px;
 }
 
-.loginBtn:hover { background-color: #355a82; }
-
-.visitorLoginBtn{
-    /* 无边框 */
-    border: none;
-    /* 背景颜色 */
-    background-color: transparent;
+.loginBtn:hover { 
+  background-color: #355a82; 
 }
 
+/* 按钮容器 - 同一行 */
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.registerBtn,
+.visitorLoginBtn {
+  border: none;
+  background-color: transparent;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  color: #456f9d;
+  transition: all 0.2s;
+  border-radius: 8px;
+}
+
+.registerBtn:hover,
 .visitorLoginBtn:hover {
-  /* 文字样式 */
   text-decoration: underline;
+  background-color: rgba(69, 111, 157, 0.1);
 }
 </style>
