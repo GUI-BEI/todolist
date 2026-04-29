@@ -104,6 +104,10 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { DayPilot, DayPilotScheduler } from "@daypilot/daypilot-lite-vue";
+import { getFilteredTasks, getTasks, updateTaskTime } from '@/api/task';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
 
 // 动态计算列宽
 const calculateCellWidth = () => {
@@ -259,32 +263,24 @@ const openEditModal = (task) => {
 const deleteTask = async () => {
   if (!editingTask.value.id) return;
   
-  // 确认删除
   const confirmed = confirm(`确定要删除任务「${editingTask.value.title}」吗？`);
   if (!confirmed) return;
   
   try {
-    const res = await fetch('http://localhost:8080/api/deleteTask', {
-      method: 'DELETE',  // 使用 DELETE 方法
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: editingTask.value.id })
-    });
-    
-    const result = await res.json();
+    const result = await deleteTask(editingTask.value.id);
     
     if (result.code === 200) {
       showMessage("删除成功");
       closeModal();
-      await fetchTasks();  // 刷新列表
+      await fetchTasks();
     } else {
       throw new Error(result.message || "删除失败");
     }
   } catch (err) {
     console.error("删除失败", err);
-    showMessage("删除失败，请稍后重试", true);
+    showMessage(err.message || "删除失败", true);
   }
 };
-
 // 关闭弹窗（不保存）
 const closeModal = () => {
   showModal.value = false;
@@ -303,7 +299,6 @@ const closeModal = () => {
 const saveTaskChanges = async () => {
   try {
     const updatedTask = {
-      id: editingTask.value.id,
       title: editingTask.value.title,
       description: editingTask.value.description,
       priority: editingTask.value.priority,
@@ -312,13 +307,7 @@ const saveTaskChanges = async () => {
       completed: editingTask.value.completed
     };
 
-    const res = await fetch('http://localhost:8080/api/updateTask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedTask)
-    });
-
-    const result = await res.json();
+    const result = await updateTask(editingTask.value.id, updatedTask);
     
     if (result.code !== 200) {
       throw new Error(result.message || "保存失败");
@@ -326,11 +315,11 @@ const saveTaskChanges = async () => {
     
     showMessage("保存成功");
     closeModal();
-    await fetchTasks();  // 刷新列表
+    await fetchTasks();
     
   } catch (err) {
     console.error("保存失败", err);
-    showMessage("保存失败", true);
+    showMessage(err.message || "保存失败", true);
   }
 };
 
@@ -426,47 +415,36 @@ const schedulerConfig = ref({
   },
 
   onEventMoved: async (args) => {
-    // 再次检查跨行（双重保险）
     if (args.newResource !== args.e.resource()) {
-      showMessage("不能将任务移动到其他行", true);
-      await fetchTasks();  // 刷新恢复
-      return;
+    showMessage("不能将任务移动到其他行", true);
+    await fetchTasks();
+    return;
+  }
+
+  try {
+    const result = await updateTaskTime(
+      args.e.id(),
+      args.newStart.toString(),
+      args.newEnd.toString()
+    );
+    
+    if (result.code !== 200) {
+      throw new Error(result.message || "同步失败");
+    }
+    
+    showMessage("同步成功");
+    
+    const taskIndex = currentTasks.value.findIndex(t => t.id === args.e.id());
+    if (taskIndex !== -1) {
+      currentTasks.value[taskIndex].start = args.newStart.toString();
+      currentTasks.value[taskIndex].end = args.newEnd.toString();
     }
 
-    // 只更新时间，不更新行
-    try {
-      const updatedTask = {
-        id: args.e.id(),
-        start: args.newStart.toString(),
-        end: args.newEnd.toString()
-      };
-
-      const res = await fetch('http://localhost:8080/api/updateTaskTime', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedTask)
-      });
-
-      const result = await res.json();
-      
-      if (result.code !== 200) {
-        throw new Error(result.message || "同步失败");
-      }
-      
-      showMessage("同步成功");
-      
-      // 更新本地数据
-      const taskIndex = currentTasks.value.findIndex(t => t.id === args.e.id());
-      if (taskIndex !== -1) {
-        currentTasks.value[taskIndex].start = args.newStart.toString();
-        currentTasks.value[taskIndex].end = args.newEnd.toString();
-      }
-
-    } catch (err) {
-      console.error("更新失败", err);
-      showMessage("同步失败，已回滚", true);
-      await fetchTasks();  // 刷新恢复原状
-    }
+  } catch (err) {
+    console.error("更新失败", err);
+    showMessage(err.message || "同步失败，已回滚", true);
+    await fetchTasks();
+  }
   }
 });
 
@@ -488,67 +466,52 @@ const getTaskDetails = (taskId) => {
 
 const fetchTasks = async () => {
   if (!schedulerRef.value) return;
+  
+  // 检查是否已登录
+  const token = localStorage.getItem('token');
+  if (!token) {
+    router.push('/login');
+    return;
+  }
 
   try {
-    const params = new URLSearchParams();
-    if (currentFilter.value !== 'all') {
-      params.append('priority', currentFilter.value);
-    }
-    if (searchKeyword.value.trim()) {
-      params.append('keyword', searchKeyword.value.trim());
-    }
-    if (currentStartDate.value) {
-      const startDate = new Date(currentStartDate.value);
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 6);
-      params.append('startDate', startDate.toISOString().split('T')[0]);
-      params.append('endDate', endDate.toISOString().split('T')[0]);
-    }
+    let result;
     
-    const url = `http://localhost:8080/api/getTasks${params.toString() ? '?' + params.toString() : ''}`;
-    const res = await fetch(url);
-    const result = await res.json();
+    const hasFilter = currentFilter.value !== 'all' || 
+                      searchKeyword.value.trim() || 
+                      currentStartDate.value;
+    
+    if (hasFilter) {
+      const params = {};
+      if (currentFilter.value !== 'all') {
+        params.priority = currentFilter.value;
+      }
+      if (searchKeyword.value.trim()) {
+        params.keyword = searchKeyword.value.trim();
+      }
+      if (currentStartDate.value) {
+        const startDate = new Date(currentStartDate.value);
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 6);
+        params.startDate = startDate.toISOString().split('T')[0];
+        params.endDate = endDate.toISOString().split('T')[0];
+      }
+      
+      result = await getFilteredTasks(params);
+    } else {
+      result = await getTasks();
+    }
     
     if (result.code === 200) {
       currentTasks.value = result.data;
       renderScheduler(currentTasks.value);
     } else {
-      throw new Error("后端返回错误");
+      throw new Error(result.message || "获取任务失败");
     }
   } catch (err) {
-    console.error('获取任务失败，使用测试数据', err);
-    
-    // 测试数据（包含所有字段）
-    const testTasks = [
-      { 
-        id: 1, 
-        title: '完成项目报告', 
-        description: '数据分析', 
-        priority: 3, 
-        start: '2026-04-20', 
-        end: '2026-04-22', 
-        completed: false 
-      },
-      { 
-        id: 2, 
-        title: '拼豆', 
-        description: '拼2778个豆', 
-        priority: 2, 
-        start: '2026-04-22', 
-        end: '2026-04-24', 
-        completed: false 
-      },
-      { 
-        id: 3, 
-        title: '拼拼豆', 
-        description: '拼2778个豆', 
-        priority: 1, 
-        start: '2026-04-26', 
-        end: '2026-04-26', 
-        completed: false 
-      }
-    ];
-    currentTasks.value = testTasks;
+    console.error('获取任务失败', err);
+    // 不再使用测试数据，因为需要用户隔离
+    currentTasks.value = [];
     renderScheduler(currentTasks.value);
   }
 };
@@ -561,6 +524,7 @@ const handleFilterChange = (value) => {
 
 // 处理搜索（带防抖）
 const handleSearch = () => {
+  
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
   searchDebounceTimer = setTimeout(() => {
     fetchTasks();
@@ -568,6 +532,12 @@ const handleSearch = () => {
 };
 
 onMounted(() => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    router.push('/login');
+    return;
+  }
+
   currentStartDate.value = getMondayOfCurrentWeek();
   schedulerConfig.value.startDate = new DayPilot.Date(currentStartDate.value, true);
 

@@ -26,11 +26,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { getSignStatus, signIn } from '@/api/sign';
+import { useRouter } from 'vue-router';
 
-// 状态
-const totalDays = ref(0);      // 累计签到天数
-const isSignedToday = ref(false); // 今日是否已签到
-const isLoading = ref(false);   // 加载状态
+const router = useRouter();
+const totalDays = ref(0);
+const isSignedToday = ref(false);
+const isLoading = ref(false);
 
 // 显示消息
 const showMessage = (text, isError = false) => {
@@ -54,40 +56,23 @@ const showMessage = (text, isError = false) => {
   setTimeout(() => msg.remove(), 2000);
 };
 
-// 添加动画样式
-const style = document.createElement('style');
-if (!document.querySelector('#sign-animation')) {
-  style.id = 'sign-animation';
-  style.textContent = `
-    @keyframes fadeOut {
-      0% { opacity: 1; }
-      70% { opacity: 1; }
-      100% { opacity: 0; visibility: hidden; }
-    }
-  `;
-  document.head.appendChild(style);
-}
-
 // 获取签到状态
 const fetchSignStatus = async () => {
+  // 检查是否已登录
+  const token = localStorage.getItem('token');
+  if (!token) {
+    router.push('/login');
+    return;
+  }
+  
   try {
-    const res = await fetch('http://localhost:8080/api/sign/status', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    const result = await res.json();
-    
+    const result = await getSignStatus();
     if (result.code === 200) {
       totalDays.value = result.data.totalDays;
       isSignedToday.value = result.data.signedToday;
-    } else {
-      throw new Error(result.message || '获取签到状态失败');
     }
   } catch (err) {
     console.error('获取签到状态失败', err);
-    // 测试数据
-    totalDays.value = 0;
-    isSignedToday.value = false;
   }
 };
 
@@ -98,28 +83,17 @@ const handleSign = async () => {
   isLoading.value = true;
   
   try {
-    const res = await fetch('http://localhost:8080/api/sign', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    const result = await res.json();
-    
+    const result = await signIn();
     if (result.code === 200) {
       totalDays.value = result.data.totalDays;
       isSignedToday.value = true;
       showMessage('签到成功！');
     } else {
-      throw new Error(result.message || '签到失败');
+      showMessage(result.message || '签到失败', true);
     }
   } catch (err) {
     console.error('签到失败', err);
     showMessage('签到失败，请稍后重试', true);
-    // 测试模式：模拟签到成功
-    if (err.message === 'Failed to fetch') {
-      totalDays.value += 1;
-      isSignedToday.value = true;
-      showMessage('签到成功！(测试模式)');
-    }
   } finally {
     isLoading.value = false;
   }
@@ -131,6 +105,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 样式保持不变 */
 .sign-wrapper {
   background: rgb(255, 255, 255);
   min-height: 100%;
@@ -219,5 +194,11 @@ onMounted(() => {
 .sign-btn:disabled {
   background-color: #ccc;
   cursor: not-allowed;
+}
+
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
 }
 </style>

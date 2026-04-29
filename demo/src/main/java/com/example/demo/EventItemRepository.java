@@ -1,11 +1,32 @@
 package com.example.demo;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-// 这个接口继承了 JpaRepository，提供了基本的 CRUD 操作,针对的是EventItem实体，主键类型是Long
-//本质是包装了对数据库表的操作，这个表由EventItem这个实体类映射而来，会扫描这个类来找到表名和字段来生成相关的SQL语句并包装成方法供我们调用，仅对应于EventItemDto这个实体类对应的表
+import java.time.LocalDate;
+import java.util.List;
+
 @Repository
 public interface EventItemRepository extends JpaRepository<EventItem, Long> {
-    // 你可以在这里添加自定义SQL语句。
+
+    // 根据用户ID查询所有任务
+    List<EventItem> findByUserId(Long userId);
+
+    // 根据用户ID和优先级查询
+    List<EventItem> findByUserIdAndPriority(Long userId, Integer priority);
+
+    // 根据用户ID和标题关键词搜索
+    List<EventItem> findByUserIdAndTitleContaining(Long userId, String keyword);
+
+    // 根据用户ID和描述关键词搜索
+    List<EventItem> findByUserIdAndDescriptionContaining(Long userId, String keyword);
+
+    // 根据用户ID和日期范围查询（开始日期在范围内）
+    List<EventItem> findByUserIdAndStartDateBetween(Long userId, LocalDate start, LocalDate end);
+
+    // 组合查询：标题或描述包含关键词
+    @Query("SELECT e FROM EventItem e WHERE e.userId = :userId AND (e.title LIKE %:keyword% OR e.description LIKE %:keyword%)")
+    List<EventItem> searchByUserIdAndKeyword(@Param("userId") Long userId, @Param("keyword") String keyword);
 }

@@ -13,10 +13,12 @@
         <input type="password" v-model="form.password" placeholder="请输入密码">
       </div>
 
-      <button class="loginBtn" @click="handleLogin">登录</button>
+      <button class="loginBtn" :disabled="isLoading" @click="handleLogin">
+        {{ isLoading ? '登录中...' : '登录' }}
+      </button>
 
       <div class="action-buttons">
-        <button class="registerBtn" @click="handleRegister">注册</button>
+        <button class="registerBtn" :disabled="isLoading" @click="handleRegister">注册</button>
         <button class="visitorLoginBtn" @click="handleVisitorLogin">游客登录</button>
       </div>
       
@@ -25,10 +27,14 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue';
-import { useRouter } from 'vue-router';
+import { reactive, ref } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import { login, register } from '@/api/user';
 
 const router = useRouter();
+const route = useRoute();
+const isLoading = ref(false);
+
 const form = reactive({
   username: '',
   password: ''
@@ -40,29 +46,37 @@ const handleLogin = async () => {
     return;
   }
 
+  isLoading.value = true;
+  
   try {
-    // 假设后端登录接口地址
-    const response = await fetch('http://localhost:8080/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
-    });
-    const result = await response.json();
+    const result = await login(form.username, form.password);
     
     if (result.code === 200) {
+      // 保存用户信息
+      localStorage.setItem('token', result.data.token);
+      localStorage.setItem('userId', result.data.userId);
+      localStorage.setItem('username', result.data.username);
+      
       alert('登录成功！');
-      // 登录成功后跳转到主界面
-      router.push('/');
+      
+      // 获取重定向地址（如果有）
+      const redirectPath = route.query.redirect;
+      if (redirectPath) {
+        router.push(redirectPath);
+      } else {
+        router.push('/');
+      }
     } else {
       alert(result.message || '登录失败');
     }
   } catch (error) {
     console.error('登录请求错误:', error);
     alert('服务器连接失败');
+  } finally {
+    isLoading.value = false;
   }
 };
 
-// 注册函数
 const handleRegister = async () => {
   if (!form.username || !form.password) {
     alert('请输入用户名和密码');
@@ -74,17 +88,13 @@ const handleRegister = async () => {
     return;
   }
 
+  isLoading.value = true;
+
   try {
-    const response = await fetch('http://localhost:8080/api/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
-    });
-    const result = await response.json();
+    const result = await register(form.username, form.password);
     
     if (result.code === 200) {
       alert('注册成功！请登录');
-      // 清空密码，保留用户名方便登录
       form.password = '';
     } else {
       alert(result.message || '注册失败');
@@ -92,18 +102,40 @@ const handleRegister = async () => {
   } catch (error) {
     console.error('注册请求错误:', error);
     alert('服务器连接失败');
+  } finally {
+    isLoading.value = false;
   }
 };
 
 // 游客登录
-const handleVisitorLogin = () => {
-  // 游客可以直接进入，不需要后端验证
-  alert('以游客身份进入');
-  router.push('/');
+const handleVisitorLogin = async () => {
+  isLoading.value = true;
+  
+  try {
+    const result = await login('visitor', 'visitor123');
+    if (result.code === 200) {
+      localStorage.setItem('token', result.data.token);
+      localStorage.setItem('userId', result.data.userId);
+      localStorage.setItem('username', '游客');
+      alert('以游客身份进入');
+      
+      const redirectPath = route.query.redirect;
+      if (redirectPath) {
+        router.push(redirectPath);
+      } else {
+        router.push('/');
+      }
+    }
+  } catch (error) {
+    alert('游客登录失败，请先注册账号');
+  } finally {
+    isLoading.value = false;
+  }
 };
 </script>
 
 <style scoped>
+/* 样式保持不变 */
 .login-wrapper {
   background: rgb(253, 253, 255);
   min-height: 80vh;
@@ -137,7 +169,7 @@ const handleVisitorLogin = () => {
   border: 1px solid #ccc;
   border-radius: 10px;
   font-size: 16px;
-  box-sizing: border-box; /* 确保padding不会撑破容器 */
+  box-sizing: border-box;
 }
 
 .loginBtn {
@@ -150,13 +182,19 @@ const handleVisitorLogin = () => {
   font-size: 18px;
   cursor: pointer;
   margin-top: 10px;
+  transition: all 0.2s;
 }
 
-.loginBtn:hover { 
+.loginBtn:hover:not(:disabled) { 
   background-color: #355a82; 
+  transform: translateY(-2px);
 }
 
-/* 按钮容器 - 同一行 */
+.loginBtn:disabled {
+  background-color: #999;
+  cursor: not-allowed;
+}
+
 .action-buttons {
   display: flex;
   justify-content: center;
@@ -176,9 +214,14 @@ const handleVisitorLogin = () => {
   border-radius: 8px;
 }
 
-.registerBtn:hover,
+.registerBtn:hover:not(:disabled),
 .visitorLoginBtn:hover {
   text-decoration: underline;
   background-color: rgba(69, 111, 157, 0.1);
+}
+
+.registerBtn:disabled {
+  color: #999;
+  cursor: not-allowed;
 }
 </style>

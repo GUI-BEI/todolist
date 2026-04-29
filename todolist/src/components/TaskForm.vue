@@ -57,25 +57,36 @@ const form = reactive({
 
 // 逻辑函数
 const submitTask = async () => {
-    // 简单的校验  标题和起止时间不能为空
-    if (!form.title || !form.start || !form.end) {
-      alert('请填写完整信息');
-      return;
-    }
+  // 检查是否已登录
+  const token = localStorage.getItem('token');
+  if (!token) {
+    router.push('/login');
+    return;
+  }
+  
+  if (!form.title || !form.start || !form.end) {
+    alert('请填写完整信息');
+    return;
+  }
 
-    const taskData = {
-      id: Date.now(),       // 使用当前时间戳作为唯一 ID
-      ...form
-    };
-
-    // 发送请求给 Java 后端（标准 axios 封装方式）
-    try {
-      const result = await addTask(form);
-      console.log('Success:', result.data);
+  try {
+    const result = await addTask(form);
+    if (result.code === 200) {
       alert('添加成功！');
-    } catch (error) {
-      console.error('Error:', error);
+      // 清空表单
+      form.title = '';
+      form.description = '';
+      form.priority = 3;
+      form.start = '';
+      form.end = '';
+      form.type = '';
+    } else {
+      alert(result.message || '添加失败');
     }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('添加失败，请稍后重试');
+  }
 };
 
 </script>

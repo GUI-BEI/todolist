@@ -4,7 +4,6 @@
       <h2>账户设置</h2>
       
       <div class="settings-form">
-        <!-- 用户名修改 -->
         <div class="form-group">
           <label>用户名</label>
           <div class="input-wrapper">
@@ -18,7 +17,6 @@
           <p class="field-desc">用于登录的唯一标识</p>
         </div>
 
-        <!-- 密码修改 -->
         <div class="form-group">
           <label>密码</label>
           <div class="input-wrapper">
@@ -28,18 +26,13 @@
               :disabled="isLoading"
               placeholder="请输入新密码"
             />
-            <button 
-              type="button" 
-              class="toggle-pwd" 
-              @click="showPassword = !showPassword"
-            >
+            <button type="button" class="toggle-pwd" @click="showPassword = !showPassword">
               {{ showPassword ? '隐藏' : '显示' }}
             </button>
           </div>
           <p class="field-desc">建议使用字母、数字组合，长度6-20位</p>
         </div>
 
-        <!-- 确认密码（可选，增强安全性） -->
         <div class="form-group">
           <label>确认密码</label>
           <div class="input-wrapper">
@@ -49,11 +42,7 @@
               :disabled="isLoading"
               placeholder="请再次输入新密码"
             />
-            <button 
-              type="button" 
-              class="toggle-pwd" 
-              @click="showConfirmPwd = !showConfirmPwd"
-            >
+            <button type="button" class="toggle-pwd" @click="showConfirmPwd = !showConfirmPwd">
               {{ showConfirmPwd ? '隐藏' : '显示' }}
             </button>
           </div>
@@ -61,18 +50,17 @@
       </div>
 
       <div class="form-actions">
-        <button 
-          class="save-btn" 
-          :disabled="isLoading || !hasChanges"
-          @click="handleSubmit"
-        >
+        <button class="save-btn" :disabled="isLoading || !hasChanges" @click="handleSubmit">
           {{ isLoading ? '提交中...' : '保存修改' }}
         </button>
       </div>
 
-      <!-- 提示信息 -->
       <div v-if="message" class="message" :class="{ error: isError }">
         {{ message }}
+      </div>
+      
+      <div class="logout-section">
+        <button class="logout-btn" @click="handleLogout">退出登录</button>
       </div>
     </div>
   </div>
@@ -80,8 +68,11 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { getUserInfo, updateUser } from '@/api/user';
 
-// 表单数据
+const router = useRouter();
+
 const form = reactive({
   username: '',
   password: ''
@@ -93,14 +84,12 @@ const showConfirmPwd = ref(false);
 const isLoading = ref(false);
 const message = ref('');
 const isError = ref(false);
-const originalUsername = ref(''); // 用于判断是否有修改
+const originalUsername = ref('');
 
-// 判断是否有修改
 const hasChanges = computed(() => {
   return form.username !== originalUsername.value || form.password.length > 0;
 });
 
-// 显示消息
 const showMessage = (text, error = false) => {
   message.value = text;
   isError.value = error;
@@ -109,41 +98,34 @@ const showMessage = (text, error = false) => {
   }, 3000);
 };
 
-// 获取用户信息
 const fetchUserInfo = async () => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    router.push('/login');
+    return;
+  }
+  
   isLoading.value = true;
   
   try {
-    const res = await fetch('http://localhost:8080/api/user/info', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    const result = await res.json();
-    
+    const result = await getUserInfo();
     if (result.code === 200) {
       form.username = result.data.username;
       originalUsername.value = result.data.username;
-      form.password = '';  // 密码清空，不显示原密码
+      form.password = '';
       confirmPassword.value = '';
     } else {
       throw new Error(result.message || '获取用户信息失败');
     }
   } catch (err) {
     console.error('获取用户信息失败', err);
-    // 测试数据
-    form.username = 'test_user';
-    originalUsername.value = 'test_user';
-    form.password = '';
-    confirmPassword.value = '';
-    showMessage('使用测试数据，后端连接失败', true);
+    showMessage('获取用户信息失败', true);
   } finally {
     isLoading.value = false;
   }
 };
 
-// 提交修改
 const handleSubmit = async () => {
-  // 验证
   if (!form.username.trim()) {
     showMessage('用户名不能为空', true);
     return;
@@ -154,7 +136,6 @@ const handleSubmit = async () => {
     return;
   }
   
-  // 如果密码不为空，才进行密码验证
   if (form.password) {
     if (form.password.length < 6) {
       showMessage('密码长度至少6位', true);
@@ -170,27 +151,21 @@ const handleSubmit = async () => {
   isLoading.value = true;
   
   try {
-    const updateData = {
-      username: form.username.trim()
-    };
-    
-    // 只有输入了新密码才提交密码字段
+    const updateData = {};
+    if (form.username !== originalUsername.value) {
+      updateData.username = form.username.trim();
+    }
     if (form.password) {
       updateData.password = form.password;
     }
     
-    const res = await fetch('http://localhost:8080/api/user/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updateData)
-    });
-    
-    const result = await res.json();
+    const result = await updateUser(updateData.username, updateData.password);
     
     if (result.code === 200) {
       originalUsername.value = form.username;
       form.password = '';
       confirmPassword.value = '';
+      localStorage.setItem('username', result.data.username);
       showMessage('修改成功！');
     } else {
       throw new Error(result.message || '修改失败');
@@ -198,16 +173,16 @@ const handleSubmit = async () => {
   } catch (err) {
     console.error('修改失败', err);
     showMessage('修改失败，请稍后重试', true);
-    // 测试模式
-    if (err.message === 'Failed to fetch') {
-      originalUsername.value = form.username;
-      form.password = '';
-      confirmPassword.value = '';
-      showMessage('修改成功！(测试模式)');
-    }
   } finally {
     isLoading.value = false;
   }
+};
+
+const handleLogout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('userId');
+  localStorage.removeItem('username');
+  router.push('/login');
 };
 
 onMounted(() => {
@@ -352,5 +327,29 @@ onMounted(() => {
 .message.error {
   background-color: #ffebee;
   color: #f44336;
+}
+
+.logout-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.logout-btn {
+  width: 100%;
+  padding: 12px 24px;
+  background-color: transparent;
+  color: #f44336;
+  border: 1px solid #f44336;
+  border-radius: 40px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+  background-color: #f44336;
+  color: white;
 }
 </style>
