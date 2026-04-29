@@ -44,24 +44,12 @@ const handleLogin = async () => {
   }
 
   try {
-    // 假设后端登录接口地址
-    const response = await fetch('http://localhost:8080/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
-    });
-    const result = await response.json();
-    
-    if (result.code === 200) {
-      alert('登录成功！');
-      // 登录成功后跳转到主界面
-      router.push('/');
-    } else {
-      alert(result.message || '登录失败');
-    }
+    const result = await signin(form);
+    console.log('Success:', result.data);
+    alert('登录成功！');
   } catch (error) {
-    console.error('登录请求错误:', error);
-    alert('服务器连接失败');
+    console.error('Error:', error);
+    alert('登录失败！')
   }
 };
 </script>

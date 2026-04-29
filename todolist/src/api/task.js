@@ -11,3 +11,10 @@ export const deleteTask = (id) => http.delete(`/deleteTask/${id}`);
 
 // 更新任务
 export const updateTask = (id, data) => http.put(`/updateTask/${id}`, data);
+
+//登录
+export const signin = (account, password) => http.post('/signin', { account, password });
+
+
+
+//

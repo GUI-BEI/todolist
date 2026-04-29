@@ -1,34 +1,27 @@
 package com.example.demo;
-import jakarta.persistence.*;
+
 import java.time.LocalDate;
 import com.fasterxml.jackson.annotation.JsonFormat;
 
-@Entity
-@Table(name = "event_item")
+// 注意：不再使用 @Entity、@Table、@Id 等 JPA 注解
 public class EventItem {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String title;
     private String description;
     private Integer priority;
-
-    // 核心修改：给 start 和 end 换个非关键字的列名
-    @Column(name = "start_date") // 映射到数据库的 start_date 列
+    
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate start;
-
-    @Column(name = "end_date")   // 映射到数据库的 end_date 列
+    
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate end;
-
+    
     private String type;
     private Boolean completed = false;
 
     public EventItem() {}
 
-    // ... 其他 getter/setter 保持不变 ...
+    // 所有 getter/setter 保持不变 ...
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getTitle() { return title; }
