@@ -1,63 +1,63 @@
 <template>
   <div class="content-wrapper">
-      <div class="task-form">
+    <div class="task-form">
+      <div class="inputBar">
+        <span>title</span>
+        <input type="text" v-model="form.title" placeholder=" 标题">
+      </div>
 
-        <div class="inputBar">
-          <span>title</span>
-          <input type="text" v-model="form.title" placeholder=" 标题">
-        </div>
+      <div class="inputBar">
+        <span>description</span>
+        <input type="text" v-model="form.description" placeholder=" 描述">
+      </div>
 
-        <div class="inputBar">
-          <span>description</span>
-          <input type="text" v-model="form.description" placeholder=" 描述">
-        </div>
+      <div class="inputBar">
+        <span>priority</span>
+        <select style="border-color: rgb(114, 130, 156);" class="priority" v-model="form.priority">
+          <option value="3">高</option>
+          <option value="2">中</option>
+          <option value="1">低</option>
+        </select>
+      </div>
 
-        <div class="inputBar">
-          <span>priority</span>
-          <select  style="border-color: rgb(114, 130, 156);" class="priority" v-model="form.priority">
-            <option value="3">高</option>
-            <option value="2">中</option>
-            <option value="1">低</option>
-          </select>
-        </div>
+      <!-- 改为 datetime-local -->
+      <div class="inputBar">
+        <span>开始时间</span>
+        <input type="datetime-local" v-model="form.start">
+      </div>
+      
+      <div class="inputBar">
+        <span>结束时间</span>
+        <input type="datetime-local" v-model="form.end">
+      </div>
 
-        <!-- 如果需要精确到小时，type改为"datetime-local" 此时 YYYY-MM-DDTHH:mm  2026-04-08T14:30-->
-        <div class="inputBar">
-          <span>time</span>
-          <input type="date" v-model="form.start">
-          <span>—</span>
-          <input type="date" v-model="form.end">
-        </div>
+      <div class="inputBar">
+        <span>type</span>
+        <input type="text" v-model="form.type" placeholder=" 分类">
+      </div>
 
-        <div class="inputBar">
-          <span>type</span>
-          <input type="text" v-model="form.type" placeholder=" 分类">
-        </div>
-
-        <button class="addBtn" @click="submitTask">ADD</button>
+      <button class="addBtn" @click="submitTask">ADD</button>
     </div>
   </div>
-
-  
 </template>
 
 <script setup>
 import { reactive } from 'vue';
 import { addTask } from '@/api/task';
+import { useRouter } from 'vue-router';
 
-// 数据绑定
+const router = useRouter();
+
 const form = reactive({
-    title: '',
-    description: '',
-    priority: 3,
-    start: '',
-    end: '',
-    type: ''
+  title: '',
+  description: '',
+  priority: 3,
+  start: '',
+  end: '',
+  type: ''
 });
 
-// 逻辑函数
 const submitTask = async () => {
-  // 检查是否已登录
   const token = localStorage.getItem('token');
   if (!token) {
     router.push('/login');
@@ -70,10 +70,22 @@ const submitTask = async () => {
   }
 
   try {
-    const result = await addTask(form);
+    // 将 datetime-local 格式转换为后端期望的格式
+    const startDateTime = form.start.replace('T', ' ') + ':00';
+    const endDateTime = form.end.replace('T', ' ') + ':00';
+    
+    const taskData = {
+      title: form.title,
+      description: form.description,
+      priority: parseInt(form.priority),
+      start: startDateTime,
+      end: endDateTime,
+      type: form.type
+    };
+    
+    const result = await addTask(taskData);
     if (result.code === 200) {
       alert('添加成功！');
-      // 清空表单
       form.title = '';
       form.description = '';
       form.priority = 3;
@@ -88,7 +100,6 @@ const submitTask = async () => {
     alert('添加失败，请稍后重试');
   }
 };
-
 </script>
 
 <style scoped>
@@ -182,7 +193,7 @@ input[type="date"] {
 /* 激活状态的样式 */
 .addBtn:active {
   border-color: rgb(106, 121, 145);
-  background-color: rgba(220, 224, 234, 0.616)
+  background-color: rgba(220, 224, 234, 0.616);
 }
 
 .content-wrapper {
@@ -201,4 +212,21 @@ input[type="date"] {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
+input[type="datetime-local"] {
+  /* 字体大小 */
+  font-size: 100%;
+  /* 粗体 */
+  font-weight: bold;
+  /* 继承页面字体 */
+  font-family: inherit;
+  /* 与其他输入框保持一致的内边距和圆角 */
+  padding: 15px 5px;
+  border-radius: 0px 15px 15px 15px;
+  border-color: rgb(114, 130, 156);
+  background: transparent;
+  width: 60vw;
+  height: auto;
+  color: #222e41;
+  transition: all 0.2s;
+}
 </style>

@@ -1,10 +1,10 @@
 package com.example.demo;
 
 import jakarta.persistence.*;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "app_user") // 【核心修改】把 "user" 改成 "app_user"
+@Table(name = "app_user") // 避免SQL保留字
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,7 +20,7 @@ public class User {
     private Integer totalDays = 0;
 
     @Column(name = "last_sign_date")
-    private LocalDate lastSignDate;
+    private LocalDateTime lastSignDate;
 
     @Column(name = "token")
     private String token;
@@ -42,8 +42,8 @@ public class User {
     public void setPassword(String password) { this.password = password; }
     public Integer getTotalDays() { return totalDays; }
     public void setTotalDays(Integer totalDays) { this.totalDays = totalDays; }
-    public LocalDate getLastSignDate() { return lastSignDate; }
-    public void setLastSignDate(LocalDate lastSignDate) { this.lastSignDate = lastSignDate; }
+    public LocalDateTime getLastSignDate() { return lastSignDate; }
+    public void setLastSignDate(LocalDateTime lastSignDate) { this.lastSignDate = lastSignDate; }
     public String getToken() { return token; }
     public void setToken(String token) { this.token = token; }
 }
