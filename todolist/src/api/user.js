@@ -26,3 +26,20 @@ export const updateUser = (username, password) => {
 export const verifyToken = () => {
   return http.get('/verify');
 };
+
+// ========== 密保相关 ==========
+
+// 设置密保问题
+export const setSecurityQuestion = (securityQuestion, securityAnswer) => {
+  return http.post('/user/security', { securityQuestion, securityAnswer });
+};
+
+// 获取密保问题（忘记密码时）
+export const getSecurityQuestion = (username) => {
+  return http.get('/user/security/question', { params: { username } });
+};
+
+// 重置密码
+export const resetPassword = (username, securityAnswer, newPassword) => {
+  return http.post('/user/reset-password', { username, securityAnswer, newPassword });
+};

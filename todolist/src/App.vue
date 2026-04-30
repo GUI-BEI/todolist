@@ -2,7 +2,9 @@
   <div class="app-wrapper">
     <nav class="nav-bar">
       <router-link to="/">首页 (周视图)</router-link>
+      <router-link to="/month">首页 (月视图)</router-link>
       <router-link to="/add">添加新任务</router-link>
+      <router-link to="/recurring">添加周期任务</router-link>
       <router-link to="/history">足迹</router-link>
       <router-link to="/sign">签到</router-link>
       <router-link to="/settings">设置</router-link>
@@ -70,5 +72,4 @@
   background-color: #5c83d8;
   color: white;
 }
-
 </style>

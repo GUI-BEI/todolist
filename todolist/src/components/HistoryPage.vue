@@ -97,8 +97,8 @@ const initChart = () => {
             orient: 'vertical',
             left: 'left',
             data: [
-                { name: '已完成', itemStyle: { color: '#4caf50' } },
-                { name: '未完成', itemStyle: { color: '#ff9800' } }
+                { name: '已完成', itemStyle: { color: '#00bcd4' } },
+                { name: '未完成', itemStyle: { color: '#2c4c96' } }
             ]
         },
         series: [
@@ -108,8 +108,8 @@ const initChart = () => {
                 radius: '55%',
                 center: ['50%', '50%'],
                 data: [
-                    { value: finished, name: '已完成', itemStyle: { color: '#4caf50' } },
-                    { value: unfinished, name: '未完成', itemStyle: { color: '#ff9800' } }
+                    { value: finished, name: '已完成', itemStyle: { color: '#00bcd4' } },
+                    { value: unfinished, name: '未完成', itemStyle: { color: '#2c4c96' } }
                 ],
                 emphasis: {
                     scale: true

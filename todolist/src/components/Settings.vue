@@ -3,6 +3,7 @@
     <div class="settings-card">
       <h2>账户设置</h2>
       
+      <!-- 基本信息设置 -->
       <div class="settings-form">
         <div class="form-group">
           <label>用户名</label>
@@ -49,6 +50,54 @@
         </div>
       </div>
 
+      <!-- 密保问题设置 -->
+      <div class="settings-form security-section">
+        <h3>密保设置</h3>
+        
+        <div class="form-group">
+          <label>密保问题</label>
+          <div class="input-wrapper">
+            <select v-model="securityForm.question" :disabled="isLoading || isSecuritySet">
+              <option value="">请选择密保问题</option>
+              <option value="你的小学名称是什么？">你的小学名称是什么？</option>
+              <option value="你的出生城市是哪里？">你的出生城市是哪里？</option>
+              <option value="你的宠物名字是什么？">你的宠物名字是什么？</option>
+              <option value="你最喜欢的书籍是什么？">你最喜欢的书籍是什么？</option>
+              <option value="你母亲的生日是什么？">你母亲的生日是什么？</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>密保答案</label>
+          <div class="input-wrapper">
+            <input 
+              type="text" 
+              v-model="securityForm.answer" 
+              :disabled="isLoading || isSecuritySet"
+              placeholder="请输入密保答案"
+            />
+          </div>
+          <p class="field-desc">请牢记答案，用于找回密码</p>
+        </div>
+
+        <div class="form-group" v-if="isSecuritySet">
+          <div class="info-message">
+            已设置密保问题
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button 
+            class="save-btn" 
+            :disabled="isLoading || !securityForm.question || !securityForm.answer || isSecuritySet" 
+            @click="handleSetSecurity"
+          >
+            {{ isLoading ? '提交中...' : '设置密保' }}
+          </button>
+        </div>
+      </div>
+
       <div class="form-actions">
         <button class="save-btn" :disabled="isLoading || !hasChanges" @click="handleSubmit">
           {{ isLoading ? '提交中...' : '保存修改' }}
@@ -69,13 +118,18 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { getUserInfo, updateUser } from '@/api/user';
+import { getUserInfo, updateUser, setSecurityQuestion } from '@/api/user';
 
 const router = useRouter();
 
 const form = reactive({
   username: '',
   password: ''
+});
+
+const securityForm = reactive({
+  question: '',
+  answer: ''
 });
 
 const confirmPassword = ref('');
@@ -85,6 +139,7 @@ const isLoading = ref(false);
 const message = ref('');
 const isError = ref(false);
 const originalUsername = ref('');
+const isSecuritySet = ref(false);
 
 const hasChanges = computed(() => {
   return form.username !== originalUsername.value || form.password.length > 0;
@@ -114,6 +169,12 @@ const fetchUserInfo = async () => {
       originalUsername.value = result.data.username;
       form.password = '';
       confirmPassword.value = '';
+      // 检查是否已设置密保
+      isSecuritySet.value = result.data.securityQuestion && result.data.securityQuestion.length > 0;
+      if (isSecuritySet.value) {
+        securityForm.question = result.data.securityQuestion;
+        securityForm.answer = '********';
+      }
     } else {
       throw new Error(result.message || '获取用户信息失败');
     }
@@ -178,6 +239,30 @@ const handleSubmit = async () => {
   }
 };
 
+const handleSetSecurity = async () => {
+  if (!securityForm.question || !securityForm.answer) {
+    showMessage('请填写密保问题和答案', true);
+    return;
+  }
+
+  isLoading.value = true;
+
+  try {
+    const result = await setSecurityQuestion(securityForm.question, securityForm.answer);
+    if (result.code === 200) {
+      showMessage('密保设置成功！');
+      isSecuritySet.value = true;
+    } else {
+      throw new Error(result.message || '设置失败');
+    }
+  } catch (err) {
+    console.error('设置密保失败', err);
+    showMessage('设置失败，请稍后重试', true);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
 const handleLogout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('userId');
@@ -191,6 +276,38 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 添加密保区域样式 */
+.security-section {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.security-section h3 {
+  margin: 0 0 20px 0;
+  color: #2c4c96;
+  font-size: 18px;
+}
+
+.info-message {
+  padding: 10px;
+  background-color: #e8f5e9;
+  border-radius: 8px;
+  color: #4caf50;
+  font-size: 14px;
+}
+
+select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  font-size: 15px;
+  font-family: inherit;
+  background-color: white;
+}
+
+/* 其他样式保持不变 */
 .settings-wrapper {
   background: rgb(255, 255, 255);
   min-height: 100%;
@@ -240,7 +357,8 @@ onMounted(() => {
   gap: 8px;
 }
 
-.input-wrapper input {
+.input-wrapper input,
+.input-wrapper select {
   flex: 1;
   padding: 12px 14px;
   border: 1px solid #ddd;
@@ -250,13 +368,15 @@ onMounted(() => {
   font-family: inherit;
 }
 
-.input-wrapper input:focus {
+.input-wrapper input:focus,
+.input-wrapper select:focus {
   outline: none;
   border-color: #5c83d8;
   box-shadow: 0 0 0 2px rgba(92, 131, 216, 0.1);
 }
 
-.input-wrapper input:disabled {
+.input-wrapper input:disabled,
+.input-wrapper select:disabled {
   background-color: #f5f5f5;
   color: #999;
 }

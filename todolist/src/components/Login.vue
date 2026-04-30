@@ -21,6 +21,11 @@
         <button class="registerBtn" :disabled="isLoading" @click="handleRegister">注册</button>
         <button class="visitorLoginBtn" @click="handleVisitorLogin">游客登录</button>
       </div>
+
+      <!-- 添加忘记密码链接 -->
+      <div class="forgot-link">
+        <router-link to="/forgot-password">忘记密码？</router-link>
+      </div>
       
     </div>
   </div>
@@ -52,14 +57,12 @@ const handleLogin = async () => {
     const result = await login(form.username, form.password);
     
     if (result.code === 200) {
-      // 保存用户信息
       localStorage.setItem('token', result.data.token);
       localStorage.setItem('userId', result.data.userId);
       localStorage.setItem('username', result.data.username);
       
       alert('登录成功！');
       
-      // 获取重定向地址（如果有）
       const redirectPath = route.query.redirect;
       if (redirectPath) {
         router.push(redirectPath);
@@ -107,7 +110,6 @@ const handleRegister = async () => {
   }
 };
 
-// 游客登录
 const handleVisitorLogin = async () => {
   isLoading.value = true;
   
@@ -135,7 +137,7 @@ const handleVisitorLogin = async () => {
 </script>
 
 <style scoped>
-/* 样式保持不变 */
+/* 样式保持不变，添加忘记密码样式 */
 .login-wrapper {
   background: rgb(253, 253, 255);
   min-height: 80vh;
@@ -223,5 +225,23 @@ const handleVisitorLogin = async () => {
 .registerBtn:disabled {
   color: #999;
   cursor: not-allowed;
+}
+
+/* 新增忘记密码样式 */
+.forgot-link {
+  text-align: center;
+  margin-top: 16px;
+}
+
+.forgot-link a {
+  color: #999;
+  text-decoration: none;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.forgot-link a:hover {
+  color: #456f9d;
+  text-decoration: underline;
 }
 </style>

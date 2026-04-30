@@ -23,3 +23,8 @@ export const updateTask = (id, data) => http.put(`/updateTask/${id}`, data);
 export const updateTaskTime = (id, start, end) => {
   return http.post('/updateTaskTime', { id, start, end });
 };
+
+// ========== 标签管理 ==========
+export const getTags = () => http.get('/tags');
+export const addTag = (tagName) => http.post('/tags', { tagName });
+export const deleteTag = (tagName) => http.delete(`/tags/${tagName}`);

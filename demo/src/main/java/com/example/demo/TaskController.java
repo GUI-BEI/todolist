@@ -63,6 +63,9 @@ public class TaskController {
             return Result.fail(authResult.getCode(), authResult.getMessage());
         }
         Long userId = authResult.getData();
+
+        System.out.println("接收到更新请求，type = " + updateTask.getType());
+
         return server.updateTask(id, updateTask, userId);
     }
 
@@ -157,5 +160,66 @@ public class TaskController {
     @GetMapping("/verify")
     public Result<UserResponseDTO> verifyToken(@RequestHeader("Authorization") String token) {
         return server.verifyToken(token.replace("Bearer ", ""));
+    }
+
+    // ========== 密保相关 ==========
+
+    // 设置密保问题（需要登录）
+    @PostMapping("/user/security")
+    public Result<Void> setSecurityQuestion(@RequestBody SecurityQuestionDTO request,
+                                            @RequestHeader("Authorization") String token) {
+        Result<Long> authResult = server.verifyTokenAndGetId(token.replace("Bearer ", ""));
+        if (authResult.getCode() != 200) {
+            return Result.fail(authResult.getCode(), authResult.getMessage());
+        }
+        Long userId = authResult.getData();
+        return server.setSecurityQuestion(userId, request.getSecurityQuestion(), request.getSecurityAnswer());
+    }
+
+    // 获取密保问题（不需要登录）
+    @GetMapping("/user/security/question")
+    public Result<String> getSecurityQuestion(@RequestParam String username) {
+        return server.getSecurityQuestion(username);
+    }
+
+    // 重置密码（不需要登录）
+    @PostMapping("/user/reset-password")
+    public Result<Void> resetPassword(@RequestBody ResetPasswordDTO request) {
+        return server.resetPassword(request.getUsername(), request.getSecurityAnswer(), request.getNewPassword());
+    }
+
+    // ========== 标签管理相关 ==========
+
+    @GetMapping("/tags")
+    public Result<List<TagDTO>> getTags(@RequestHeader("Authorization") String token) {
+        Result<Long> authResult = server.verifyTokenAndGetId(token.replace("Bearer ", ""));
+        if (authResult.getCode() != 200) {
+            return Result.fail(authResult.getCode(), authResult.getMessage());
+        }
+        Long userId = authResult.getData();
+        return server.getTags(userId);
+    }
+
+    @PostMapping("/tags")
+    public Result<TagDTO> addTag(@RequestBody Map<String, String> request,
+                                 @RequestHeader("Authorization") String token) {
+        Result<Long> authResult = server.verifyTokenAndGetId(token.replace("Bearer ", ""));
+        if (authResult.getCode() != 200) {
+            return Result.fail(authResult.getCode(), authResult.getMessage());
+        }
+        Long userId = authResult.getData();
+        String tagName = request.get("tagName");
+        return server.addTag(userId, tagName);
+    }
+
+    @DeleteMapping("/tags/{tagName}")
+    public Result<Void> deleteTag(@PathVariable String tagName,
+                                  @RequestHeader("Authorization") String token) {
+        Result<Long> authResult = server.verifyTokenAndGetId(token.replace("Bearer ", ""));
+        if (authResult.getCode() != 200) {
+            return Result.fail(authResult.getCode(), authResult.getMessage());
+        }
+        Long userId = authResult.getData();
+        return server.deleteTag(userId, tagName);
     }
 }

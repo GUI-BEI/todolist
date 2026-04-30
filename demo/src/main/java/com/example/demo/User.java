@@ -25,6 +25,14 @@ public class User {
     @Column(name = "token")
     private String token;
 
+    // 新增：密保问题
+    @Column(name = "security_question")
+    private String securityQuestion;
+
+    // 新增：密保答案（实际应用中应该加密存储）
+    @Column(name = "security_answer")
+    private String securityAnswer;
+
     public User() {}
     public User(String username, String password) {
         this.username = username;
@@ -46,4 +54,10 @@ public class User {
     public void setLastSignDate(LocalDateTime lastSignDate) { this.lastSignDate = lastSignDate; }
     public String getToken() { return token; }
     public void setToken(String token) { this.token = token; }
+
+    public String getSecurityQuestion() { return securityQuestion; }
+    public void setSecurityQuestion(String securityQuestion) { this.securityQuestion = securityQuestion; }
+
+    public String getSecurityAnswer() { return securityAnswer; }
+    public void setSecurityAnswer(String securityAnswer) { this.securityAnswer = securityAnswer; }
 }

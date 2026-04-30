@@ -22,7 +22,6 @@ public class EventItemRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    // 自定义RowMapper，时间类型统一为 LocalDateTime
     private final RowMapper<EventItem> eventItemRowMapper = (rs, rowNum) -> {
         EventItem item = new EventItem();
         item.setId(rs.getLong("id"));
@@ -37,7 +36,6 @@ public class EventItemRepository {
         return item;
     };
 
-    // 动态建表：为每个用户创建独立任务表
     public void createTaskTableForUser(Long userId) {
         String tableName = getTaskTableName(userId);
         String createTableSql = String.format("""
@@ -83,9 +81,10 @@ public class EventItemRepository {
         return task;
     }
 
+    // 获取用户所有任务（按优先级降序，结束日期升序）
     public List<EventItem> findByUserId(Long userId) {
         String tableName = getTaskTableName(userId);
-        String sql = String.format("SELECT * FROM %s WHERE user_id = ?", tableName);
+        String sql = String.format("SELECT * FROM %s WHERE user_id = ? ORDER BY priority DESC, end_date ASC", tableName);
         return jdbcTemplate.query(sql, eventItemRowMapper, userId);
     }
 
@@ -137,8 +136,9 @@ public class EventItemRepository {
         jdbcTemplate.update(sql, newStart, newEnd, taskId, userId);
     }
 
-    public List<EventItem> findByFilter(Long userId, Integer priority, String keyword, 
-                                       LocalDateTime startDate, LocalDateTime endDate) {
+    // 筛选方法（按优先级降序，结束日期升序）
+    public List<EventItem> findByFilter(Long userId, Integer priority, String keyword,
+                                        LocalDateTime startDate, LocalDateTime endDate) {
         String tableName = getTaskTableName(userId);
         StringBuilder sql = new StringBuilder(String.format("SELECT * FROM %s WHERE user_id = ?", tableName));
         List<Object> params = new ArrayList<>();
@@ -150,10 +150,9 @@ public class EventItemRepository {
         }
 
         if (keyword != null && !keyword.trim().isEmpty()) {
-            String kw = keyword.trim().toLowerCase();
             sql.append(" AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ?)");
-            params.add("%" + kw + "%");
-            params.add("%" + kw + "%");
+            params.add("%" + keyword + "%");
+            params.add("%" + keyword + "%");
         }
 
         if (startDate != null && endDate != null) {
@@ -161,6 +160,9 @@ public class EventItemRepository {
             params.add(startDate);
             params.add(endDate);
         }
+
+        // 添加排序
+        sql.append(" ORDER BY priority DESC, end_date ASC");
 
         return jdbcTemplate.query(sql.toString(), eventItemRowMapper, params.toArray());
     }

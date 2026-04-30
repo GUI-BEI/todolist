@@ -10,15 +10,20 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @Service
 public class Server {
     private final EventItemRepository eventItemRepository;
     private final UserRepository userRepository;
+    private final TaskTagRepository taskTagRepository;
 
-    public Server(EventItemRepository eventItemRepository, UserRepository userRepository) {
+    public Server(EventItemRepository eventItemRepository,
+                  UserRepository userRepository,
+                  TaskTagRepository taskTagRepository) {
         this.eventItemRepository = eventItemRepository;
         this.userRepository = userRepository;
+        this.taskTagRepository = taskTagRepository;
     }
 
     // ========== 任务相关方法（保持不变）==========
@@ -33,7 +38,7 @@ public class Server {
     }
 
     public Result<List<EventItem>> getTasks(Long userId) {
-        List<EventItem> tasks = eventItemRepository.findByUserId(userId);
+        List<EventItem> tasks = eventItemRepository.findByUserId(userId);  // 已在Repository中排序
         return Result.success(tasks);
     }
 
@@ -189,7 +194,7 @@ public class Server {
     public Result<SignStatusDTO> getSignStatus(Long userId) {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isEmpty()) {
-            System.out.println("❌ 获取签到状态失败：用户ID " + userId + " 不存在");
+            System.out.println(" 获取签到状态失败：用户ID " + userId + " 不存在");
             return Result.fail(404, "用户不存在");
         }
         User user = userOpt.get();
@@ -204,7 +209,7 @@ public class Server {
     public Result<SignStatusDTO> signIn(Long userId) {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isEmpty()) {
-            System.out.println("❌ 签到失败：用户ID " + userId + " 不存在");
+            System.out.println(" 签到失败：用户ID " + userId + " 不存在");
             return Result.fail(404, "用户不存在");
         }
         User user = userOpt.get();
@@ -213,7 +218,7 @@ public class Server {
         if (user.getLastSignDate() != null) {
             LocalDate lastSignDate = user.getLastSignDate().toLocalDate();
             if (lastSignDate.equals(today)) {
-                System.out.println("⚠️ 用户ID " + userId + " 今日已签到");
+                System.out.println(" 用户ID " + userId + " 今日已签到");
                 return Result.fail(400, "今日已经签到过了");
             }
         }
@@ -236,13 +241,114 @@ public class Server {
         User savedUser;
         try {
             savedUser = userRepository.save(user);
-            System.out.println("✅ 用户ID " + userId + " 签到成功，总天数：" + newTotalDays);
+            System.out.println(" 用户ID " + userId + " 签到成功，总天数：" + newTotalDays);
         } catch (Exception e) {
-            System.out.println("❌ 用户ID " + userId + " 签到保存失败：" + e.getMessage());
+            System.out.println(" 用户ID " + userId + " 签到保存失败：" + e.getMessage());
             e.printStackTrace();
             return Result.fail(500, "签到失败：服务器保存数据出错");
         }
 
         return Result.success(new SignStatusDTO(savedUser.getTotalDays(), true));
+    }
+
+    // 设置密保问题和答案
+    public Result<Void> setSecurityQuestion(Long userId, String question, String answer) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            return Result.fail(404, "用户不存在");
+        }
+
+        User user = userOpt.get();
+
+        if (question == null || question.trim().isEmpty()) {
+            return Result.fail(400, "密保问题不能为空");
+        }
+        if (answer == null || answer.trim().isEmpty()) {
+            return Result.fail(400, "密保答案不能为空");
+        }
+
+        user.setSecurityQuestion(question);
+        user.setSecurityAnswer(answer);
+        userRepository.save(user);
+
+        return Result.success(null);
+    }
+
+    // 获取用户的密保问题（用于忘记密码）
+    public Result<String> getSecurityQuestion(String username) {
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            return Result.fail(404, "用户名不存在");
+        }
+
+        User user = userOpt.get();
+        if (user.getSecurityQuestion() == null || user.getSecurityQuestion().isEmpty()) {
+            return Result.fail(404, "该用户未设置密保问题");
+        }
+
+        return Result.success(user.getSecurityQuestion());
+    }
+
+    // 验证密保答案并重置密码
+    public Result<Void> resetPassword(String username, String answer, String newPassword) {
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            return Result.fail(404, "用户名不存在");
+        }
+
+        User user = userOpt.get();
+
+        if (user.getSecurityAnswer() == null) {
+            return Result.fail(400, "该用户未设置密保问题");
+        }
+
+        if (!user.getSecurityAnswer().equals(answer)) {
+            return Result.fail(401, "密保答案错误");
+        }
+
+        if (newPassword == null || newPassword.length() < 6) {
+            return Result.fail(400, "新密码长度至少6位");
+        }
+
+        // 使用 BCrypt 加密新密码
+        String hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt());
+        user.setPassword(hashedPassword);
+        userRepository.save(user);
+
+        return Result.success(null);
+    }
+
+    // ========== 标签管理相关方法 ==========
+
+    // 获取用户的所有标签
+    public Result<List<TagDTO>> getTags(Long userId) {
+        List<TaskTag> tags = taskTagRepository.findByUserIdOrderBySortOrderAsc(userId);
+        List<TagDTO> tagDTOs = tags.stream().map(TagDTO::new).collect(Collectors.toList());
+        return Result.success(tagDTOs);
+    }
+
+    // 添加标签
+    public Result<TagDTO> addTag(Long userId, String tagName) {
+        if (tagName == null || tagName.trim().isEmpty()) {
+            return Result.fail(400, "标签名不能为空");
+        }
+
+        if (taskTagRepository.existsByUserIdAndTagName(userId, tagName)) {
+            return Result.fail(409, "标签已存在");
+        }
+
+        TaskTag tag = new TaskTag(userId, tagName);
+        TaskTag savedTag = taskTagRepository.save(tag);
+        return Result.success(new TagDTO(savedTag));
+    }
+
+    // 删除标签
+    public Result<Void> deleteTag(Long userId, String tagName) {
+        if (tagName == null || tagName.trim().isEmpty()) {
+            return Result.fail(400, "标签名不能为空");
+        }
+
+        taskTagRepository.deleteByUserIdAndTagName(userId, tagName);
+        return Result.success(null);
     }
 }
