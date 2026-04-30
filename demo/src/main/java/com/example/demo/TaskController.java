@@ -1,6 +1,7 @@
 package com.example.demo;
 
 import org.springframework.web.bind.annotation.*;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -8,15 +9,13 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 public class TaskController {
-
     private final Server server;
 
     public TaskController(Server server) {
         this.server = server;
     }
 
-    // ========== 任务相关 ==========
-
+    // ========== 任务相关（保持不变）==========
     @PostMapping("/addTask")
     public Result<EventItem> addTask(@RequestBody EventItem task,
                                      @RequestHeader("Authorization") String token) {
@@ -45,18 +44,13 @@ public class TaskController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
-
         Result<Long> authResult = server.verifyTokenAndGetId(token.replace("Bearer ", ""));
         if (authResult.getCode() != 200) {
             return Result.fail(authResult.getCode(), authResult.getMessage());
         }
         Long userId = authResult.getData();
-
-        // 解析为LocalDateTime（原逻辑正确，无需改）
         LocalDateTime start = startDate != null ? LocalDateTime.parse(startDate) : null;
         LocalDateTime end = endDate != null ? LocalDateTime.parse(endDate) : null;
-
-        // 传递LocalDateTime给Server（Server层已修正参数类型）
         return server.getTasksWithFilter(userId, priority, keyword, start, end);
     }
 
@@ -91,50 +85,46 @@ public class TaskController {
             return Result.fail(authResult.getCode(), authResult.getMessage());
         }
         Long userId = authResult.getData();
-
         Long id = Long.valueOf(request.get("id"));
-        // 解析日期时间字符串为 LocalDateTime
-        // 前端传来的格式可能是 "2026-04-30 00:00:00" 或 "2026-04-30T00:00:00"
         String startStr = request.get("start");
         String endStr = request.get("end");
-
         LocalDateTime start = startStr != null ? parseDateTime(startStr) : null;
         LocalDateTime end = endStr != null ? parseDateTime(endStr) : null;
-
         return server.updateTaskTime(id, start, end, userId);
     }
 
-    // 辅助方法：解析多种日期时间格式
     private LocalDateTime parseDateTime(String dateTimeStr) {
         if (dateTimeStr == null) return null;
-        // 处理 "2026-04-30 00:00:00" 格式
         if (dateTimeStr.contains(" ")) {
             return LocalDateTime.parse(dateTimeStr.replace(" ", "T"));
         }
-        // 处理 "2026-04-30T00:00:00" 格式
         return LocalDateTime.parse(dateTimeStr);
     }
 
-    // ========== 用户相关 ==========
-
+    // ========== 用户相关（统一返回 UserResponseDTO）==========
     @PostMapping("/login")
-    public Result<LoginResponseDTO> login(@RequestBody LoginRequestDTO request) {
+    public Result<UserResponseDTO> login(@RequestBody LoginRequestDTO request) {
         return server.login(request.getUsername(), request.getPassword());
     }
 
     @PostMapping("/register")
-    public Result<User> register(@RequestBody LoginRequestDTO request) {
+    public Result<UserResponseDTO> register(@RequestBody LoginRequestDTO request) {
         return server.register(request.getUsername(), request.getPassword());
     }
 
     @GetMapping("/user/info")
-    public Result<User> getUserInfo(@RequestHeader("Authorization") String token) {
-        return server.verifyToken(token.replace("Bearer ", ""));
+    public Result<UserResponseDTO> getUserInfo(@RequestHeader("Authorization") String token) {
+        Result<Long> authResult = server.verifyTokenAndGetId(token.replace("Bearer ", ""));
+        if (authResult.getCode() != 200) {
+            return Result.fail(authResult.getCode(), authResult.getMessage());
+        }
+        Long userId = authResult.getData();
+        return server.getUserInfo(userId);
     }
 
     @PostMapping("/user/update")
-    public Result<User> updateUser(@RequestBody Map<String, String> request,
-                                   @RequestHeader("Authorization") String token) {
+    public Result<UserResponseDTO> updateUser(@RequestBody Map<String, String> request,
+                                               @RequestHeader("Authorization") String token) {
         Result<Long> authResult = server.verifyTokenAndGetId(token.replace("Bearer ", ""));
         if (authResult.getCode() != 200) {
             return Result.fail(authResult.getCode(), authResult.getMessage());
@@ -143,8 +133,7 @@ public class TaskController {
         return server.updateUser(userId, request.get("username"), request.get("password"));
     }
 
-    // ========== 签到相关 ==========
-
+    // ========== 签到相关（保持不变）==========
     @GetMapping("/sign/status")
     public Result<SignStatusDTO> getSignStatus(@RequestHeader("Authorization") String token) {
         Result<Long> authResult = server.verifyTokenAndGetId(token.replace("Bearer ", ""));
@@ -166,7 +155,7 @@ public class TaskController {
     }
 
     @GetMapping("/verify")
-    public Result<User> verifyToken(@RequestHeader("Authorization") String token) {
+    public Result<UserResponseDTO> verifyToken(@RequestHeader("Authorization") String token) {
         return server.verifyToken(token.replace("Bearer ", ""));
     }
 }

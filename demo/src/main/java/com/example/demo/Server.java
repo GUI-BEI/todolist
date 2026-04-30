@@ -4,14 +4,15 @@ import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class Server {
-
     private final EventItemRepository eventItemRepository;
     private final UserRepository userRepository;
 
@@ -20,7 +21,7 @@ public class Server {
         this.userRepository = userRepository;
     }
 
-    // ========== 任务相关方法（适配动态表，时间类型统一为 LocalDateTime）==========
+    // ========== 任务相关方法（保持不变）==========
     public Result<EventItem> addTask(EventItem task, Long userId) {
         if (task.getTitle() == null || task.getTitle().trim().isEmpty()) {
             return Result.fail(400, "任务标题不能为空");
@@ -79,35 +80,30 @@ public class Server {
         return Result.success(updatedTask);
     }
 
-    // ========== 用户相关方法（核心功能不变）==========
-    public Result<LoginResponseDTO> login(String username, String password) {
+    // ========== 用户相关方法（统一使用 UserResponseDTO）==========
+    public Result<UserResponseDTO> login(String username, String password) {
         if (username == null || username.trim().isEmpty()) {
             return Result.fail(400, "用户名不能为空");
         }
         if (password == null || password.trim().isEmpty()) {
             return Result.fail(400, "密码不能为空");
         }
-
         Optional<User> userOpt = userRepository.findByUsername(username);
         if (userOpt.isEmpty()) {
             return Result.fail(401, "用户名不存在");
         }
-
         User user = userOpt.get();
         if (!BCrypt.checkpw(password, user.getPassword())) {
             return Result.fail(401, "密码错误");
         }
-
         String token = UUID.randomUUID().toString();
         user.setToken(token);
         userRepository.save(user);
-
-        LoginResponseDTO response = new LoginResponseDTO(user, token);
-        return Result.success(response);
+        return Result.success(new UserResponseDTO(user, token));
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public Result<User> register(String username, String password) {
+    public Result<UserResponseDTO> register(String username, String password) {
         if (username == null || username.trim().isEmpty()) {
             return Result.fail(400, "用户名不能为空");
         }
@@ -120,54 +116,54 @@ public class Server {
         if (userRepository.existsByUsername(username)) {
             return Result.fail(409, "用户名已存在");
         }
-
         String encryptedPwd = BCrypt.hashpw(password, BCrypt.gensalt());
         User newUser = new User(username, encryptedPwd);
         User savedUser = userRepository.save(newUser);
-        
-        // 为新用户创建专属任务表（动态建表核心逻辑）
-        eventItemRepository.createTaskTableForUser(savedUser.getId());
-        
-        savedUser.setPassword(null);
-        savedUser.setToken(null);
-        return Result.success(savedUser);
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                eventItemRepository.createTaskTableForUser(savedUser.getId());
+            } catch (Exception e) {
+                System.out.println("建表失败：" + e.getMessage());
+            }
+        });
+
+        return Result.success(new UserResponseDTO(savedUser));
     }
 
-    public Result<User> getUserInfo(Long userId) {
+    public Result<UserResponseDTO> getUserInfo(Long userId) {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isEmpty()) {
             return Result.fail(404, "用户不存在");
         }
         User user = userOpt.get();
-        user.setPassword(null);
-        return Result.success(user);
+        return Result.success(new UserResponseDTO(user));
     }
 
-    public Result<User> verifyToken(String token) {
+    public Result<UserResponseDTO> verifyToken(String token) {
         if (token == null || token.trim().isEmpty()) {
             return Result.fail(401, "未提供token");
         }
-
         Optional<User> userOpt = userRepository.findByToken(token);
         if (userOpt.isEmpty()) {
             return Result.fail(401, "token无效或已过期");
         }
-
         User user = userOpt.get();
-        user.setPassword(null);
-        return Result.success(user);
+        return Result.success(new UserResponseDTO(user));
     }
 
-    // 【核心修复】添加缺失的 verifyTokenAndGetId 方法
     public Result<Long> verifyTokenAndGetId(String token) {
-        Result<User> verifyResult = verifyToken(token);
-        if (verifyResult.getCode() != 200) {
-            return Result.fail(verifyResult.getCode(), verifyResult.getMessage());
+        if (token == null || token.trim().isEmpty()) {
+            return Result.fail(401, "未提供token");
         }
-        return Result.success(verifyResult.getData().getId());
+        Optional<User> userOpt = userRepository.findByToken(token);
+        if (userOpt.isEmpty()) {
+            return Result.fail(401, "token无效或已过期");
+        }
+        return Result.success(userOpt.get().getId());
     }
 
-    public Result<User> updateUser(Long userId, String newUsername, String newPassword) {
+    public Result<UserResponseDTO> updateUser(Long userId, String newUsername, String newPassword) {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isEmpty()) {
             return Result.fail(404, "用户不存在");
@@ -186,43 +182,67 @@ public class Server {
             user.setPassword(BCrypt.hashpw(newPassword, BCrypt.gensalt()));
         }
         User savedUser = userRepository.save(user);
-        savedUser.setPassword(null);
-        savedUser.setToken(null);
-        return Result.success(savedUser);
+        return Result.success(new UserResponseDTO(savedUser));
     }
 
-    // ========== 签到相关方法（核心功能不变）==========
+    // ========== 签到相关方法（保持不变）==========
     public Result<SignStatusDTO> getSignStatus(Long userId) {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isEmpty()) {
+            System.out.println("❌ 获取签到状态失败：用户ID " + userId + " 不存在");
             return Result.fail(404, "用户不存在");
         }
         User user = userOpt.get();
-        LocalDateTime today = LocalDateTime.now();
+        LocalDate today = LocalDate.now();
         boolean signedToday = user.getLastSignDate() != null &&
-                user.getLastSignDate().toLocalDate().equals(today.toLocalDate());
-        return Result.success(new SignStatusDTO(user.getTotalDays(), signedToday));
+                user.getLastSignDate().toLocalDate().equals(today);
+        Integer totalDays = user.getTotalDays() == null ? 0 : user.getTotalDays();
+        return Result.success(new SignStatusDTO(totalDays, signedToday));
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public Result<SignStatusDTO> signIn(Long userId) {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isEmpty()) {
+            System.out.println("❌ 签到失败：用户ID " + userId + " 不存在");
             return Result.fail(404, "用户不存在");
         }
         User user = userOpt.get();
-        LocalDateTime today = LocalDateTime.now();
-        if (user.getLastSignDate() != null &&
-                user.getLastSignDate().toLocalDate().equals(today.toLocalDate())) {
-            return Result.fail(400, "今日已经签到过了");
+        LocalDate today = LocalDate.now();
+
+        if (user.getLastSignDate() != null) {
+            LocalDate lastSignDate = user.getLastSignDate().toLocalDate();
+            if (lastSignDate.equals(today)) {
+                System.out.println("⚠️ 用户ID " + userId + " 今日已签到");
+                return Result.fail(400, "今日已经签到过了");
+            }
         }
-        if (user.getLastSignDate() != null &&
-                user.getLastSignDate().toLocalDate().plusDays(1).equals(today.toLocalDate())) {
-            user.setTotalDays(user.getTotalDays() + 1);
+
+        int newTotalDays;
+        if (user.getLastSignDate() != null) {
+            LocalDate lastSignDate = user.getLastSignDate().toLocalDate();
+            if (lastSignDate.plusDays(1).equals(today)) {
+                newTotalDays = (user.getTotalDays() == null ? 0 : user.getTotalDays()) + 1;
+            } else {
+                newTotalDays = 1;
+            }
         } else {
-            user.setTotalDays(1);
+            newTotalDays = 1;
         }
-        user.setLastSignDate(today);
-        User savedUser = userRepository.save(user);
+
+        user.setTotalDays(newTotalDays);
+        user.setLastSignDate(LocalDateTime.now());
+
+        User savedUser;
+        try {
+            savedUser = userRepository.save(user);
+            System.out.println("✅ 用户ID " + userId + " 签到成功，总天数：" + newTotalDays);
+        } catch (Exception e) {
+            System.out.println("❌ 用户ID " + userId + " 签到保存失败：" + e.getMessage());
+            e.printStackTrace();
+            return Result.fail(500, "签到失败：服务器保存数据出错");
+        }
+
         return Result.success(new SignStatusDTO(savedUser.getTotalDays(), true));
     }
 }

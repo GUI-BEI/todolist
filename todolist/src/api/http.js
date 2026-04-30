@@ -2,10 +2,8 @@ import axios from 'axios';
 
 const http = axios.create({
   baseURL: 'http://localhost:8080/api',
-  timeout: 5000,
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  timeout: 10000, // 从5秒延长到10秒
+  headers: { 'Content-Type': 'application/json' }
 });
 
 // 请求拦截器：自动添加 token
