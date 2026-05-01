@@ -43,3 +43,16 @@ export const getSecurityQuestion = (username) => {
 export const resetPassword = (username, securityAnswer, newPassword) => {
   return http.post('/user/reset-password', { username, securityAnswer, newPassword });
 };
+
+// ========== 头像相关 ==========
+
+// 上传头像
+export const uploadAvatar = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return http.post('/user/avatar', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+};

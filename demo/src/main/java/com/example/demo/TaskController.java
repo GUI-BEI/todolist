@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api")
@@ -221,5 +222,56 @@ public class TaskController {
         }
         Long userId = authResult.getData();
         return server.deleteTag(userId, tagName);
+    }
+
+    // 上传头像
+    @PostMapping("/user/avatar")
+    public Result<String> uploadAvatar(@RequestParam("file") MultipartFile file,
+                                       @RequestHeader("Authorization") String token) {
+        Result<Long> authResult = server.verifyTokenAndGetId(token.replace("Bearer ", ""));
+        if (authResult.getCode() != 200) {
+            return Result.fail(authResult.getCode(), authResult.getMessage());
+        }
+        Long userId = authResult.getData();
+        return server.uploadAvatar(userId, file);
+    }
+
+    // ========== 附件管理 ==========
+
+    // 上传附件
+    @PostMapping("/task/{taskId}/attachments")
+    public Result<AttachmentDTO> uploadAttachment(@PathVariable Long taskId,
+                                                  @RequestParam("file") MultipartFile file,
+                                                  @RequestHeader("Authorization") String token) {
+        Result<Long> authResult = server.verifyTokenAndGetId(token.replace("Bearer ", ""));
+        if (authResult.getCode() != 200) {
+            return Result.fail(authResult.getCode(), authResult.getMessage());
+        }
+        Long userId = authResult.getData();
+        return server.uploadAttachment(taskId, userId, file);
+    }
+
+    // 获取任务附件列表
+    @GetMapping("/task/{taskId}/attachments")
+    public Result<List<AttachmentDTO>> getAttachments(@PathVariable Long taskId,
+                                                      @RequestHeader("Authorization") String token) {
+        Result<Long> authResult = server.verifyTokenAndGetId(token.replace("Bearer ", ""));
+        if (authResult.getCode() != 200) {
+            return Result.fail(authResult.getCode(), authResult.getMessage());
+        }
+        Long userId = authResult.getData();
+        return server.getAttachments(taskId, userId);
+    }
+
+    // 删除附件
+    @DeleteMapping("/attachments/{attachmentId}")
+    public Result<Void> deleteAttachment(@PathVariable Long attachmentId,
+                                         @RequestHeader("Authorization") String token) {
+        Result<Long> authResult = server.verifyTokenAndGetId(token.replace("Bearer ", ""));
+        if (authResult.getCode() != 200) {
+            return Result.fail(authResult.getCode(), authResult.getMessage());
+        }
+        Long userId = authResult.getData();
+        return server.deleteAttachment(attachmentId, userId);
     }
 }

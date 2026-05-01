@@ -20,11 +20,15 @@
         </select>
       </div>
 
+      <!-- 时间选择 - 精确到小时 -->
       <div class="inputBar">
-        <span>时间</span>
-        <input type="date" v-model="form.start">
-        <span>—</span>
-        <input type="date" v-model="form.end">
+        <span>开始时间</span>
+        <input type="datetime-local" v-model="form.start">
+      </div>
+
+      <div class="inputBar">
+        <span>结束时间</span>
+        <input type="datetime-local" v-model="form.end">
       </div>
 
       <!-- 标签栏 -->
@@ -142,6 +146,14 @@ const removeTag = async (tagName) => {
   }
 };
 
+// 格式化日期时间为后端期望的格式
+const formatDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return '';
+  // datetime-local 返回 "2026-05-02T14:30"
+  // 后端期望 "2026-05-02 14:30:00"
+  return dateTimeStr.replace('T', ' ') + ':00';
+};
+
 // 提交任务
 const submitTask = async () => {
   const token = localStorage.getItem('token');
@@ -155,15 +167,23 @@ const submitTask = async () => {
     return;
   }
 
+  // 验证开始时间不能大于结束时间
+  if (form.start >= form.end) {
+    alert('开始时间不能大于或等于结束时间');
+    return;
+  }
+
   try {
     const taskData = {
       title: form.title,
       description: form.description,
       priority: parseInt(form.priority),
-      start: form.start,
-      end: form.end,
+      start: formatDateTime(form.start),
+      end: formatDateTime(form.end),
       type: form.type
     };
+    
+    console.log('提交的任务数据:', taskData);
     
     const result = await addTask(taskData);
     if (result.code === 200) {

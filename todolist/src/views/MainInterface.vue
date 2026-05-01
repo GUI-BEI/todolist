@@ -32,6 +32,18 @@
           </button>
         </div>
 
+        <button class="nav-btn" @click="exportToLongImage">导出 PNG</button>
+        <button class="nav-btn" @click="exportToExcel">导出 Excel</button>
+
+        <div class="import-export-group">
+          <label class="nav-btn import-csv-btn">
+            导入 CSV
+            <input type="file" accept=".csv" @change="importFromCSV" style="display: none;">
+          </label>
+          <button class="nav-btn template-btn" @click="downloadCSVTemplate">下载模板</button>
+          <button class="nav-btn export-csv-btn" @click="exportToCSV">导出 CSV</button>
+        </div>
+
           <button class="nav-btn" @click="goToNextWeek">下周 ></button>
       
     </div>
@@ -91,6 +103,32 @@
               <span>已完成</span>
             </div>
           </div>
+
+          <div class="inputBar">
+            <label>附件</label>
+            <div class="attachment-area">
+              <div class="attachment-list">
+                <div v-for="att in attachments" :key="att.id" class="attachment-item">
+                  <span class="attachment-icon">📎</span>
+                  <span class="attachment-name" @click="previewAttachment(att)">
+                    {{ att.fileName }}
+                  </span>
+                  <span class="attachment-size">{{ formatFileSize(att.fileSize) }}</span>
+                  <button class="attachment-delete" @click="deleteAttachmentFile(att.id)">×</button>
+                </div>
+                <div v-if="attachments.length === 0" class="attachment-empty">
+                  暂无附件
+                </div>
+              </div>
+              <div class="attachment-upload">
+                <label class="upload-btn">
+                  选择文件
+                  <input type="file" @change="uploadNewAttachment" style="display: none;">
+                </label>
+                <span class="upload-hint">支持图片、文档等，最大10MB</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="modal-footer">
@@ -103,14 +141,35 @@
       </div>
     </div>
 
+    <!-- 图片预览弹窗 -->
+    <div v-if="previewImageUrl" class="preview-overlay" @click="closePreview">
+      <div class="preview-content" @click.stop>
+        <img :src="previewImageUrl" alt="预览">
+        <button class="preview-close" @click="closePreview">×</button>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { DayPilot, DayPilotScheduler } from "@daypilot/daypilot-lite-vue";
-import { getFilteredTasks, getTasks, updateTaskTime, updateTask } from '@/api/task';
+
+import { 
+  getFilteredTasks, 
+  getTasks, 
+  updateTaskTime, 
+  updateTask, 
+  deleteTask as deleteTaskApi,
+  uploadAttachment,
+  getAttachments,
+  deleteAttachment
+} from '@/api/task';
+
 import { useRouter } from 'vue-router';
+import html2canvas from 'html2canvas';
+import * as XLSX from 'xlsx';
 
 const router = useRouter();
 
@@ -139,6 +198,10 @@ const filters = [
   { label: '中', value: '2' },
   { label: '低', value: '1' }
 ];
+
+// 附件相关
+const attachments = ref([]);
+const uploading = ref(false);
 
 // 状态
 const currentFilter = ref('all');
@@ -268,6 +331,9 @@ const openEditModal = (task) => {
     completed: task.completed || false
   };
   showModal.value = true;
+  // 加载附件
+  loadAttachments(task.id);
+  showModal.value = true;
 };
 
 // 删除任务
@@ -278,7 +344,8 @@ const deleteTask = async () => {
   if (!confirmed) return;
   
   try {
-    const result = await deleteTask(editingTask.value.id);
+    // 使用别名调用 API
+    const result = await deleteTaskApi(editingTask.value.id);
     
     if (result.code === 200) {
       showMessage("删除成功");
@@ -292,9 +359,11 @@ const deleteTask = async () => {
     showMessage(err.message || "删除失败", true);
   }
 };
+
 // 关闭弹窗（不保存）
 const closeModal = () => {
   showModal.value = false;
+  attachments.value = [];
   editingTask.value = {
     id: null,
     title: '',
@@ -525,6 +594,438 @@ const schedulerConfig = ref({
   }
   }
 });
+
+// 导出为长图 PNG
+const exportToLongImage = async () => {
+  if (!schedulerRef.value) {
+    showMessage('调度器未就绪', true);
+    return;
+  }
+  
+  showMessage('正在生成长图，请稍候...');
+  
+  try {
+    const container = document.querySelector('.scheduler_default_main');
+    if (!container) {
+      showMessage('未找到调度器元素', true);
+      return;
+    }
+    
+    // 获取容器的完整尺寸
+    const scrollWidth = container.scrollWidth;
+    const scrollHeight = container.scrollHeight;
+    const originalWidth = container.style.width;
+    const originalHeight = container.style.height;
+    const originalOverflow = container.style.overflow;
+    
+    // 临时移除滚动限制，显示完整内容
+    container.style.width = `${scrollWidth}px`;
+    container.style.height = `${scrollHeight}px`;
+    container.style.overflow = 'visible';
+    
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      logging: false,
+      useCORS: true,
+      windowWidth: scrollWidth,
+      windowHeight: scrollHeight
+    });
+    
+    // 恢复原始样式
+    container.style.width = originalWidth;
+    container.style.height = originalHeight;
+    container.style.overflow = originalOverflow;
+    
+    // 下载长图
+    const link = document.createElement('a');
+    link.download = `schedule_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+    
+    showMessage('导出成功');
+  } catch (error) {
+    console.error('导出失败:', error);
+    showMessage('导出失败: ' + error.message, true);
+    // 恢复样式
+    const container = document.querySelector('.scheduler_default_main');
+    if (container) {
+      container.style.overflow = '';
+    }
+  }
+};
+
+// 导出为 Excel
+const exportToExcel = () => {
+  if (!currentTasks.value || currentTasks.value.length === 0) {
+    showMessage('没有可导出的数据', true);
+    return;
+  }
+  
+  // 准备数据
+  const data = currentTasks.value.map(task => ({
+    '标题': task.title,
+    '描述': task.description || '',
+    '优先级': task.priority === 3 ? '高' : (task.priority === 2 ? '中' : '低'),
+    '开始时间': task.start,
+    '结束时间': task.end,
+    '分类': task.type || '',
+    '状态': task.completed ? '已完成' : '未完成'
+  }));
+  
+  // 创建工作簿和工作表
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '任务列表');
+  
+  // 设置列宽
+  ws['!cols'] = [
+    { wch: 20 },  // 标题
+    { wch: 30 },  // 描述
+    { wch: 8 },   // 优先级
+    { wch: 18 },  // 开始时间
+    { wch: 18 },  // 结束时间
+    { wch: 12 },  // 分类
+    { wch: 8 }    // 状态
+  ];
+  
+  // 导出文件
+  XLSX.writeFile(wb, `tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  showMessage('导出成功');
+};
+
+// 导入 CSV 文件
+const importFromCSV = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  // 验证文件类型
+  if (!file.name.endsWith('.csv')) {
+    showMessage('请选择 CSV 文件', true);
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const content = e.target.result;
+    const rows = parseCSV(content);
+    
+    if (rows.length === 0) {
+      showMessage('CSV 文件为空或格式错误', true);
+      return;
+    }
+    
+    // 检查表头
+    const headers = rows[0];
+    const requiredHeaders = ['标题', '开始时间', '结束时间'];
+    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+    
+    if (missingHeaders.length > 0) {
+      showMessage(`CSV 缺少必要列: ${missingHeaders.join(', ')}`, true);
+      return;
+    }
+    
+    // 确认导入
+    const confirmed = confirm(`共发现 ${rows.length - 1} 条任务，确定要导入吗？`);
+    if (!confirmed) return;
+    
+    let successCount = 0;
+    let failCount = 0;
+    const errors = [];
+    
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const taskData = {};
+      
+      // 根据表头映射数据
+      headers.forEach((header, index) => {
+        const value = row[index] ? row[index].trim() : '';
+        if (header === '标题') taskData.title = value;
+        else if (header === '描述') taskData.description = value;
+        else if (header === '优先级') taskData.priority = parsePriority(value);
+        else if (header === '开始时间') taskData.start = value;
+        else if (header === '结束时间') taskData.end = value;
+        else if (header === '分类') taskData.type = value;
+        else if (header === '状态') taskData.completed = value === '已完成' || value === 'true';
+      });
+      
+      // 验证必填字段
+      if (!taskData.title || !taskData.start || !taskData.end) {
+        failCount++;
+        errors.push(`第 ${i + 1} 行: 缺少必填字段`);
+        continue;
+      }
+      
+      // 格式化时间
+      taskData.start = formatImportDateTime(taskData.start);
+      taskData.end = formatImportDateTime(taskData.end);
+      
+      try {
+        const result = await addTask(taskData);
+        if (result.code === 200) {
+          successCount++;
+        } else {
+          failCount++;
+          errors.push(`第 ${i + 1} 行: ${result.message || '添加失败'}`);
+        }
+      } catch (err) {
+        failCount++;
+        errors.push(`第 ${i + 1} 行: 网络错误`);
+      }
+      
+      // 每10条显示一次进度
+      if ((successCount + failCount) % 10 === 0) {
+        showMessage(`正在导入... 成功: ${successCount}, 失败: ${failCount}`);
+      }
+    }
+    
+    // 显示导入结果
+    let message = `导入完成！\n成功: ${successCount}\n失败: ${failCount}`;
+    if (errors.length > 0 && errors.length <= 5) {
+      message += '\n\n错误详情:\n' + errors.join('\n');
+    } else if (errors.length > 5) {
+      message += `\n\n共有 ${errors.length} 条错误，请检查数据格式`;
+    }
+    alert(message);
+    
+    if (successCount > 0) {
+      await fetchTasks(); // 刷新视图
+    }
+    
+    // 清空 input，允许重复导入同一文件
+    event.target.value = '';
+  };
+  
+  reader.readAsText(file, 'UTF-8');
+};
+
+// 解析 CSV
+const parseCSV = (content) => {
+  const rows = [];
+  const lines = content.split(/\r?\n/);
+  
+  for (const line of lines) {
+    if (line.trim() === '') continue;
+    
+    const row = [];
+    let inQuotes = false;
+    let currentCell = '';
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        row.push(currentCell);
+        currentCell = '';
+      } else {
+        currentCell += char;
+      }
+    }
+    row.push(currentCell);
+    
+    rows.push(row);
+  }
+  
+  return rows;
+};
+
+// 解析优先级
+const parsePriority = (priorityStr) => {
+  if (!priorityStr) return 2;
+  const str = priorityStr.toString().toLowerCase();
+  if (str === '高' || str === 'high' || str === '3') return 3;
+  if (str === '低' || str === 'low' || str === '1') return 1;
+  return 2; // 默认中优先级
+};
+
+// 格式化导入的日期时间
+const formatImportDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return '';
+  
+  // 处理 "2026-05-02" 格式（只有日期）
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateTimeStr)) {
+    return dateTimeStr + ' 00:00:00';
+  }
+  
+  // 处理 "2026-05-02 14:30" 格式
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(dateTimeStr)) {
+    return dateTimeStr + ':00';
+  }
+  
+  // 处理 "2026-05-02T14:30" 格式
+  if (dateTimeStr.includes('T')) {
+    return dateTimeStr.replace('T', ' ') + ':00';
+  }
+  
+  // 已经是完整格式
+  return dateTimeStr;
+};
+
+// 下载 CSV 模板
+const downloadCSVTemplate = () => {
+  const headers = ['标题', '描述', '优先级', '开始时间', '结束时间', '分类', '状态'];
+  const exampleRow = ['示例任务', '这是示例描述', '中', '2026-05-02 09:00', '2026-05-02 17:00', '工作', '未完成'];
+  
+  const csvContent = [headers.join(','), exampleRow.join(',')].join('\n');
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  link.download = 'task_import_template.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+  
+  showMessage('模板下载成功');
+};
+
+// 导出为 CSV
+const exportToCSV = () => {
+  if (!currentTasks.value || currentTasks.value.length === 0) {
+    showMessage('没有可导出的数据', true);
+    return;
+  }
+  
+  // 定义表头
+  const headers = ['标题', '描述', '优先级', '开始时间', '结束时间', '分类', '状态'];
+  
+  // 转换数据
+  const rows = currentTasks.value.map(task => [
+    task.title,
+    task.description || '',
+    task.priority === 3 ? '高' : (task.priority === 2 ? '中' : '低'),
+    task.start || '',
+    task.end || '',
+    task.type || '',
+    task.completed ? '已完成' : '未完成'
+  ]);
+  
+  // 构建 CSV 内容
+  let csvContent = headers.join(',') + '\n';
+  
+  rows.forEach(row => {
+    const escapedRow = row.map(cell => {
+      // 处理空值
+      const value = cell || '';
+      // 如果包含逗号、换行或引号，用双引号包裹
+      if (value.includes(',') || value.includes('\n') || value.includes('"')) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    });
+    csvContent += escapedRow.join(',') + '\n';
+  });
+  
+  // 下载文件（添加 BOM 解决中文乱码）
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  link.download = `tasks_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  
+  showMessage(`导出成功，共 ${currentTasks.value.length} 条任务`);
+};
+
+// 获取完整附件URL
+const getFullAttachmentUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  return `http://localhost:8080${url}`;
+};
+
+// 格式化文件大小
+const formatFileSize = (bytes) => {
+  if (!bytes) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+};
+
+// 加载附件列表
+const loadAttachments = async (taskId) => {
+  try {
+    const result = await getAttachments(taskId);
+    if (result.code === 200) {
+      attachments.value = result.data;
+    }
+  } catch (err) {
+    console.error('加载附件失败', err);
+  }
+};
+
+// 上传附件
+const uploadNewAttachment = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  console.log('选择的文件:', file);
+  console.log('当前任务ID:', editingTask.value.id);
+  
+  if (!editingTask.value.id) {
+    showMessage('请先保存任务后再上传附件', true);
+    return;
+  }
+  
+  uploading.value = true;
+  
+  try {
+    console.log('开始上传...');
+    const result = await uploadAttachment(editingTask.value.id, file);
+    console.log('上传返回结果:', result);
+    
+    if (result.code === 200) {
+      attachments.value.push(result.data);
+      showMessage('附件上传成功');
+    } else {
+      throw new Error(result.message || '上传失败');
+    }
+  } catch (err) {
+    console.error('上传失败详细错误:', err);
+    showMessage('上传失败: ' + (err.message || '未知错误'), true);
+  } finally {
+    uploading.value = false;
+    event.target.value = '';
+  }
+};
+
+// 删除附件
+const deleteAttachmentFile = async (attachmentId) => {
+  if (!confirm('确定要删除此附件吗？')) return;
+  
+  try {
+    const result = await deleteAttachment(attachmentId);
+    if (result.code === 200) {
+      attachments.value = attachments.value.filter(a => a.id !== attachmentId);
+      showMessage('删除成功');
+    } else {
+      throw new Error(result.message || '删除失败');
+    }
+  } catch (err) {
+    console.error('删除失败', err);
+    showMessage('删除失败', true);
+  }
+};
+
+const previewImageUrl = ref(null);
+const previewImageName = ref('');
+
+const previewAttachment = async (attachment) => {
+  if (attachment.fileType?.startsWith('image/')) {
+    // 图片预览
+    previewImageUrl.value = getFullAttachmentUrl(attachment.downloadUrl);
+    previewImageName.value = attachment.fileName;
+  } else {
+    // 非图片直接下载
+    await downloadAttachment(attachment);
+  }
+};
+
+const closePreview = () => {
+  previewImageUrl.value = null;
+};
 
 // 添加一个获取任务详情的方法（可选）
 const getTaskDetails = (taskId) => {
@@ -1006,5 +1507,147 @@ defineExpose({
 .main-interface::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 4px;
+}
+
+/* 附件区域样式 */
+.attachment-area {
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.attachment-list {
+  max-height: 150px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  border: 1px solid #eee;
+}
+
+.attachment-icon {
+  font-size: 16px;
+}
+
+.attachment-name {
+  flex: 1;
+  color: #2c4c96;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.attachment-name:hover {
+  text-decoration: underline;
+  color: #5c83d8;
+}
+.attachment-size {
+  font-size: 11px;
+  color: #999;
+}
+
+.attachment-delete {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: #ffebee;
+  color: #f44336;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.attachment-delete:hover {
+  background: #f44336;
+  color: white;
+}
+
+.attachment-empty {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+  font-size: 13px;
+}
+
+.attachment-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.upload-btn {
+  padding: 6px 16px;
+  background-color: #5c83d8;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.upload-btn:hover {
+  background-color: #456f9d;
+}
+
+.upload-hint {
+  font-size: 11px;
+  color: #999;
+}
+
+/* 图片预览弹窗 */
+.preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.preview-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.preview-content img {
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: 8px;
+}
+
+.preview-close {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  background: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
+  cursor: pointer;
 }
 </style>

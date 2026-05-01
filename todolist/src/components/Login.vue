@@ -13,6 +13,14 @@
         <input type="password" v-model="form.password" placeholder="请输入密码">
       </div>
 
+      <!-- 记住密码复选框 -->
+      <div class="remember-row">
+        <label class="remember-checkbox">
+          <input type="checkbox" v-model="rememberMe">
+          <span>记住密码</span>
+        </label>
+      </div>
+
       <button class="loginBtn" :disabled="isLoading" @click="handleLogin">
         {{ isLoading ? '登录中...' : '登录' }}
       </button>
@@ -22,28 +30,55 @@
         <button class="visitorLoginBtn" @click="handleVisitorLogin">游客登录</button>
       </div>
 
-      <!-- 添加忘记密码链接 -->
       <div class="forgot-link">
         <router-link to="/forgot-password">忘记密码？</router-link>
       </div>
-      
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { reactive, ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { login, register } from '@/api/user';
+import { emit } from '@/utils/eventBus';  // 导入事件总线
 
 const router = useRouter();
 const route = useRoute();
 const isLoading = ref(false);
+const rememberMe = ref(false);
 
 const form = reactive({
   username: '',
   password: ''
 });
+
+// 保存记住的密码到 localStorage
+const saveRememberedPassword = () => {
+  if (rememberMe.value && form.username && form.password) {
+    localStorage.setItem('rememberedUsername', form.username);
+    localStorage.setItem('rememberedPassword', form.password);
+    localStorage.setItem('rememberMe', 'true');
+  } else {
+    localStorage.removeItem('rememberedUsername');
+    localStorage.removeItem('rememberedPassword');
+    localStorage.setItem('rememberMe', 'false');
+  }
+};
+
+// 加载记住的密码
+const loadRememberedPassword = () => {
+  const remembered = localStorage.getItem('rememberMe') === 'true';
+  if (remembered) {
+    const savedUsername = localStorage.getItem('rememberedUsername');
+    const savedPassword = localStorage.getItem('rememberedPassword');
+    if (savedUsername && savedPassword) {
+      form.username = savedUsername;
+      form.password = savedPassword;
+      rememberMe.value = true;
+    }
+  }
+};
 
 const handleLogin = async () => {
   if (!form.username || !form.password) {
@@ -60,6 +95,12 @@ const handleLogin = async () => {
       localStorage.setItem('token', result.data.token);
       localStorage.setItem('userId', result.data.userId);
       localStorage.setItem('username', result.data.username);
+      
+      // 保存记住密码
+      saveRememberedPassword();
+      
+      // 发送登录成功事件，通知 App.vue 更新用户信息
+      emit('userLoggedIn');
       
       alert('登录成功！');
       
@@ -119,6 +160,10 @@ const handleVisitorLogin = async () => {
       localStorage.setItem('token', result.data.token);
       localStorage.setItem('userId', result.data.userId);
       localStorage.setItem('username', '游客');
+      
+      // 发送登录成功事件
+      emit('userLoggedIn');
+      
       alert('以游客身份进入');
       
       const redirectPath = route.query.redirect;
@@ -134,10 +179,44 @@ const handleVisitorLogin = async () => {
     isLoading.value = false;
   }
 };
+
+// 页面加载时加载记住的密码
+onMounted(() => {
+  loadRememberedPassword();
+});
 </script>
 
 <style scoped>
-/* 样式保持不变，添加忘记密码样式 */
+/* ... 原有样式 ... */
+
+/* 新增记住密码样式 */
+.remember-row {
+  margin: 15px 0;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.remember-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #666;
+}
+
+.remember-checkbox input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.remember-checkbox span {
+  user-select: none;
+}
+
+/* 其他样式保持不变 */
 .login-wrapper {
   background: rgb(253, 253, 255);
   min-height: 80vh;
@@ -227,7 +306,6 @@ const handleVisitorLogin = async () => {
   cursor: not-allowed;
 }
 
-/* 新增忘记密码样式 */
 .forgot-link {
   text-align: center;
   margin-top: 16px;

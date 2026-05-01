@@ -25,13 +25,17 @@ public class User {
     @Column(name = "token")
     private String token;
 
-    // 新增：密保问题
+    // 密保问题
     @Column(name = "security_question")
     private String securityQuestion;
 
-    // 新增：密保答案（实际应用中应该加密存储）
+    // 密保答案
     @Column(name = "security_answer")
     private String securityAnswer;
+
+    // 头像URL
+    @Column(name = "avatar_url")
+    private String avatarUrl;
 
     public User() {}
     public User(String username, String password) {
@@ -60,4 +64,7 @@ public class User {
 
     public String getSecurityAnswer() { return securityAnswer; }
     public void setSecurityAnswer(String securityAnswer) { this.securityAnswer = securityAnswer; }
+
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
 }

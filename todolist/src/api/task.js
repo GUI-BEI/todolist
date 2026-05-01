@@ -28,3 +28,26 @@ export const updateTaskTime = (id, start, end) => {
 export const getTags = () => http.get('/tags');
 export const addTag = (tagName) => http.post('/tags', { tagName });
 export const deleteTag = (tagName) => http.delete(`/tags/${tagName}`);
+
+// ========== 附件管理 ==========
+
+// 上传附件
+export const uploadAttachment = (taskId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return http.post(`/task/${taskId}/attachments`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+};
+
+// 获取附件列表
+export const getAttachments = (taskId) => {
+  return http.get(`/task/${taskId}/attachments`);
+};
+
+// 删除附件
+export const deleteAttachment = (attachmentId) => {
+  return http.delete(`/attachments/${attachmentId}`);
+};

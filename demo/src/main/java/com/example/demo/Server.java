@@ -3,7 +3,13 @@ package com.example.demo;
 import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,13 +23,16 @@ public class Server {
     private final EventItemRepository eventItemRepository;
     private final UserRepository userRepository;
     private final TaskTagRepository taskTagRepository;
+    private final TaskAttachmentRepository attachmentRepository;
 
     public Server(EventItemRepository eventItemRepository,
                   UserRepository userRepository,
-                  TaskTagRepository taskTagRepository) {
+                  TaskTagRepository taskTagRepository,
+                  TaskAttachmentRepository attachmentRepository) {
         this.eventItemRepository = eventItemRepository;
         this.userRepository = userRepository;
         this.taskTagRepository = taskTagRepository;
+        this.attachmentRepository = attachmentRepository;
     }
 
     // ========== 任务相关方法（保持不变）==========
@@ -71,6 +80,21 @@ public class Server {
         if (task == null) {
             return Result.fail(404, "任务不存在");
         }
+
+        // 删除任务的所有附件文件
+        List<TaskAttachment> attachments = attachmentRepository.findByTaskId(id);
+        for (TaskAttachment attachment : attachments) {
+            String filePath = AttachmentConfig.getAttachmentPath() + attachment.getFilePath();
+            File file = new File(filePath);
+            if (file.exists()) {
+                file.delete();
+            }
+        }
+
+        // 删除附件记录
+        attachmentRepository.deleteByTaskId(id);
+
+        // 删除任务
         eventItemRepository.deleteById(userId, id);
         return Result.success(null);
     }
@@ -349,6 +373,167 @@ public class Server {
         }
 
         taskTagRepository.deleteByUserIdAndTagName(userId, tagName);
+        return Result.success(null);
+    }
+
+    // 上传头像
+    public Result<String> uploadAvatar(Long userId, MultipartFile file) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            return Result.fail(404, "用户不存在");
+        }
+
+        User user = userOpt.get();
+
+        // 检查文件类型
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            return Result.fail(400, "只能上传图片文件");
+        }
+
+        // 检查文件大小（限制2MB）
+        if (file.getSize() > 2 * 1024 * 1024) {
+            return Result.fail(400, "图片大小不能超过2MB");
+        }
+
+        try {
+            // 确保目录存在
+            File avatarDir = new File(FileUploadConfig.getAvatarPath());
+            if (!avatarDir.exists()) {
+                avatarDir.mkdirs();
+            }
+
+            // 生成唯一文件名
+            String extension = getFileExtension(file.getOriginalFilename());
+            String fileName = userId + "_" + UUID.randomUUID().toString() + extension;
+            String filePath = FileUploadConfig.getAvatarPath() + fileName;
+
+            // 删除旧头像
+            if (user.getAvatarUrl() != null && !user.getAvatarUrl().isEmpty()) {
+                String oldFileName = user.getAvatarUrl().substring(user.getAvatarUrl().lastIndexOf("/") + 1);
+                File oldFile = new File(FileUploadConfig.getAvatarPath() + oldFileName);
+                if (oldFile.exists()) {
+                    oldFile.delete();
+                }
+            }
+
+            // 保存新头像
+            Path path = Paths.get(filePath);
+            Files.write(path, file.getBytes());
+
+            // 保存头像URL（相对路径，用于前端访问）
+            String avatarUrl = "/avatars/" + fileName;
+            user.setAvatarUrl(avatarUrl);
+            userRepository.save(user);
+
+            System.out.println("保存的头像URL: " + avatarUrl);
+
+            return Result.success(avatarUrl);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return Result.fail(500, "头像保存失败");
+        }
+    }
+
+    // 获取文件扩展名
+    private String getFileExtension(String filename) {
+        if (filename == null || filename.lastIndexOf(".") == -1) {
+            return ".jpg";
+        }
+        return filename.substring(filename.lastIndexOf("."));
+    }
+
+    // 上传附件
+    public Result<AttachmentDTO> uploadAttachment(Long taskId, Long userId, MultipartFile file) {
+        // 检查任务是否存在
+        EventItem task = eventItemRepository.findById(userId, taskId);
+        if (task == null) {
+            return Result.fail(404, "任务不存在");
+        }
+
+        // 检查文件大小（限制10MB）
+        if (file.getSize() > 10 * 1024 * 1024) {
+            return Result.fail(400, "文件大小不能超过10MB");
+        }
+
+        try {
+            // 确保目录存在
+            File attachmentDir = new File(AttachmentConfig.getAttachmentPath());
+            if (!attachmentDir.exists()) {
+                attachmentDir.mkdirs();
+            }
+
+            // 生成唯一文件名
+            String originalFileName = file.getOriginalFilename();
+            String extension = "";
+            if (originalFileName != null && originalFileName.lastIndexOf(".") > 0) {
+                extension = originalFileName.substring(originalFileName.lastIndexOf("."));
+            }
+            String savedFileName = UUID.randomUUID().toString() + extension;
+            String filePath = AttachmentConfig.getAttachmentPath() + savedFileName;
+
+            // 保存文件
+            Path path = Paths.get(filePath);
+            Files.write(path, file.getBytes());
+
+            // 保存附件记录
+            TaskAttachment attachment = new TaskAttachment();
+            attachment.setTaskId(taskId);
+            attachment.setUserId(userId);
+            attachment.setFileName(originalFileName);
+            attachment.setFilePath(savedFileName);
+            attachment.setFileSize(file.getSize());
+            attachment.setFileType(file.getContentType());
+            attachment.setUploadTime(LocalDateTime.now());
+
+            TaskAttachment saved = attachmentRepository.save(attachment);
+
+            return Result.success(new AttachmentDTO(saved));
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return Result.fail(500, "文件上传失败");
+        }
+    }
+
+    // 获取任务的所有附件
+    public Result<List<AttachmentDTO>> getAttachments(Long taskId, Long userId) {
+        EventItem task = eventItemRepository.findById(userId, taskId);
+        if (task == null) {
+            return Result.fail(404, "任务不存在");
+        }
+
+        List<TaskAttachment> attachments = attachmentRepository.findByTaskId(taskId);
+        List<AttachmentDTO> dtos = attachments.stream()
+                .map(AttachmentDTO::new)
+                .collect(Collectors.toList());
+
+        return Result.success(dtos);
+    }
+
+    // 删除附件
+    public Result<Void> deleteAttachment(Long attachmentId, Long userId) {
+        Optional<TaskAttachment> opt = attachmentRepository.findById(attachmentId);
+        if (opt.isEmpty()) {
+            return Result.fail(404, "附件不存在");
+        }
+
+        TaskAttachment attachment = opt.get();
+        if (!attachment.getUserId().equals(userId)) {
+            return Result.fail(403, "无权删除此附件");
+        }
+
+        // 删除文件
+        String filePath = AttachmentConfig.getAttachmentPath() + attachment.getFilePath();
+        File file = new File(filePath);
+        if (file.exists()) {
+            file.delete();
+        }
+
+        // 删除记录
+        attachmentRepository.deleteById(attachmentId);
+
         return Result.success(null);
     }
 }

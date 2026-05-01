@@ -3,6 +3,27 @@
     <div class="settings-card">
       <h2>账户设置</h2>
       
+      <!-- 头像区域 -->
+      <div class="avatar-section">
+        <div class="avatar-container" @click="triggerFileInput">
+          <img v-if="avatarUrl" :src="getFullAvatarUrl(avatarUrl)" class="avatar-img" alt="头像">
+          <div v-else class="avatar-placeholder">
+            <span>{{ usernameInitial }}</span>
+          </div>
+          <div class="avatar-overlay">
+            <span>✚</span>
+          </div>
+        </div>
+        <input 
+          type="file" 
+          ref="fileInput" 
+          accept="image/jpeg,image/png,image/gif"
+          style="display: none"
+          @change="handleAvatarUpload"
+        />
+        <p class="avatar-hint">点击上传头像（支持 JPG、PNG，最大2MB）</p>
+      </div>
+
       <!-- 基本信息设置 -->
       <div class="settings-form">
         <div class="form-group">
@@ -83,7 +104,7 @@
 
         <div class="form-group" v-if="isSecuritySet">
           <div class="info-message">
-            已设置密保问题
+            ✅ 已设置密保问题
           </div>
         </div>
 
@@ -118,7 +139,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { getUserInfo, updateUser, setSecurityQuestion } from '@/api/user';
+import { getUserInfo, updateUser, setSecurityQuestion, uploadAvatar } from '@/api/user';
 
 const router = useRouter();
 
@@ -140,6 +161,13 @@ const message = ref('');
 const isError = ref(false);
 const originalUsername = ref('');
 const isSecuritySet = ref(false);
+const avatarUrl = ref('');
+const fileInput = ref(null);
+
+// 用户名首字母（用于默认头像）
+const usernameInitial = computed(() => {
+  return form.username ? form.username.charAt(0).toUpperCase() : '?';
+});
 
 const hasChanges = computed(() => {
   return form.username !== originalUsername.value || form.password.length > 0;
@@ -151,6 +179,56 @@ const showMessage = (text, error = false) => {
   setTimeout(() => {
     message.value = '';
   }, 3000);
+};
+
+// 触发文件选择
+const triggerFileInput = () => {
+  fileInput.value.click();
+};
+
+// 上传头像
+const handleAvatarUpload = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  // 验证文件类型
+  if (!file.type.startsWith('image/')) {
+    showMessage('请选择图片文件', true);
+    return;
+  }
+  
+  // 验证文件大小（2MB）
+  if (file.size > 2 * 1024 * 1024) {
+    showMessage('图片大小不能超过2MB', true);
+    return;
+  }
+  
+  isLoading.value = true;
+  
+  try {
+    const result = await uploadAvatar(file);
+    if (result.code === 200) {
+      avatarUrl.value = result.data;
+      showMessage('头像上传成功');
+    } else {
+      throw new Error(result.message || '上传失败');
+    }
+  } catch (err) {
+    console.error('上传头像失败', err);
+    showMessage('上传失败，请稍后重试', true);
+  } finally {
+    isLoading.value = false;
+    event.target.value = '';
+  }
+};
+
+// 添加获取完整头像URL的方法
+const getFullAvatarUrl = (url) => {
+  if (!url) return '';
+  // 如果已经是完整URL，直接返回
+  if (url.startsWith('http')) return url;
+  // 否则拼接后端基础地址
+  return `http://localhost:8080${url}`;
 };
 
 const fetchUserInfo = async () => {
@@ -169,7 +247,7 @@ const fetchUserInfo = async () => {
       originalUsername.value = result.data.username;
       form.password = '';
       confirmPassword.value = '';
-      // 检查是否已设置密保
+      avatarUrl.value = result.data.avatarUrl || '';
       isSecuritySet.value = result.data.securityQuestion && result.data.securityQuestion.length > 0;
       if (isSecuritySet.value) {
         securityForm.question = result.data.securityQuestion;
@@ -267,6 +345,7 @@ const handleLogout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('userId');
   localStorage.removeItem('username');
+  localStorage.removeItem('avatarUrl');
   router.push('/login');
 };
 
@@ -276,38 +355,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 添加密保区域样式 */
-.security-section {
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
-}
-
-.security-section h3 {
-  margin: 0 0 20px 0;
-  color: #2c4c96;
-  font-size: 18px;
-}
-
-.info-message {
-  padding: 10px;
-  background-color: #e8f5e9;
-  border-radius: 8px;
-  color: #4caf50;
-  font-size: 14px;
-}
-
-select {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  font-size: 15px;
-  font-family: inherit;
-  background-color: white;
-}
-
-/* 其他样式保持不变 */
+/* 样式与之前相同，省略以节省空间 */
 .settings-wrapper {
   background: rgb(255, 255, 255);
   min-height: 100%;
@@ -335,8 +383,87 @@ select {
   text-align: center;
 }
 
+/* 头像区域 */
+.avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.avatar-container {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  cursor: pointer;
+  overflow: hidden;
+  background-color: #f0f0f0;
+  transition: all 0.3s;
+}
+
+.avatar-container:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #5c83d8;
+  color: white;
+  font-size: 40px;
+  font-weight: bold;
+}
+
+.avatar-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 24px;
+  color: white;
+}
+
+.avatar-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+}
+
+/* 表单样式 */
 .settings-form {
   margin-bottom: 28px;
+}
+
+.security-section {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.security-section h3 {
+  margin: 0 0 20px 0;
+  color: #2c4c96;
+  font-size: 18px;
 }
 
 .form-group {
@@ -400,6 +527,15 @@ select {
   margin: 6px 0 0 0;
   font-size: 12px;
   color: #888;
+}
+
+.info-message {
+  padding: 10px;
+  background-color: #e8f5e9;
+  border-radius: 8px;
+  color: #4caf50;
+  font-size: 14px;
+  text-align: center;
 }
 
 .form-actions {

@@ -1,36 +1,46 @@
 package com.example.demo;
 
-import java.time.LocalDateTime;
-
 public class UserResponseDTO {
-    private Long id;
+    private Long userId;
     private String username;
-    private Integer totalDays;
-    private LocalDateTime lastSignDate;
     private String token;
+    private Integer totalDays;
+    private String avatarUrl;
+    private String securityQuestion;
 
-    // 构造函数1：普通用户信息（无token）
     public UserResponseDTO(User user) {
-        this.id = user.getId();
+        this.userId = user.getId();
         this.username = user.getUsername();
         this.totalDays = user.getTotalDays();
-        this.lastSignDate = user.getLastSignDate();
-        this.token = null;
+        this.avatarUrl = user.getAvatarUrl();
+        this.securityQuestion = user.getSecurityQuestion();
     }
 
-    // 构造函数2：登录专用（带token）
     public UserResponseDTO(User user, String token) {
-        this.id = user.getId();
+        this.userId = user.getId();
         this.username = user.getUsername();
-        this.totalDays = user.getTotalDays();
-        this.lastSignDate = user.getLastSignDate();
         this.token = token;
+        this.totalDays = user.getTotalDays();
+        this.avatarUrl = user.getAvatarUrl();
+        this.securityQuestion = user.getSecurityQuestion();
     }
 
-    // Getters
-    public Long getId() { return id; }
+    // Getters and Setters
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+
     public String getUsername() { return username; }
-    public Integer getTotalDays() { return totalDays; }
-    public LocalDateTime getLastSignDate() { return lastSignDate; }
+    public void setUsername(String username) { this.username = username; }
+
     public String getToken() { return token; }
+    public void setToken(String token) { this.token = token; }
+
+    public Integer getTotalDays() { return totalDays; }
+    public void setTotalDays(Integer totalDays) { this.totalDays = totalDays; }
+
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+
+    public String getSecurityQuestion() { return securityQuestion; }
+    public void setSecurityQuestion(String securityQuestion) { this.securityQuestion = securityQuestion; }
 }
