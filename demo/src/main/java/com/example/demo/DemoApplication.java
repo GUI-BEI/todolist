@@ -21,9 +21,9 @@ public class DemoApplication {
             System.out.println("========== 开始测试数据库连接 ==========");
             try {
                 long userCount = userRepository.count(); // 直接用 JpaRepository 自带的 count()
-                System.out.println("✅ 数据库连接成功！当前共有 " + userCount + " 个用户");
+                System.out.println(" 数据库连接成功！当前共有 " + userCount + " 个用户");
             } catch (Exception e) {
-                System.out.println("❌ 数据库连接失败！错误信息：");
+                System.out.println(" 数据库连接失败！错误信息：");
                 e.printStackTrace();
             }
             System.out.println("========== 测试结束 ==========");
