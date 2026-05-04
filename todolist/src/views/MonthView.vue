@@ -1,59 +1,62 @@
 <template>
-  <div class="main-interface">
+  <div class="month-view">
     <!-- 功能栏 - 单行布局 -->
     <div class="toolbar">
+      <button class="nav-btn" @click="goToPreviousMonth">< 上月</button>
 
-        <button class="nav-btn" @click="goToPreviousWeek">< 上周</button>
+      <div class="current-month">{{ currentYear }}年 {{ currentMonth }}月</div>
 
-        <div class="search-box">
-          <input 
-            type="text" 
-            v-model="searchKeyword" 
-            placeholder="搜索任务..."
-            @input="handleSearch"
-            @keyup.enter="fetchTasks"
-          />
-          <button class="search-btn" @click="fetchTasks">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="10" cy="10" r="7"/>
-              <line x1="15" y1="15" x2="21" y2="21"/>
-            </svg>
-          </button>
-        </div>
+      <div class="search-box">
+        <input 
+          type="text" 
+          v-model="searchKeyword" 
+          placeholder="搜索任务..."
+          @input="handleSearch"
+          @keyup.enter="fetchTasks"
+        />
+        <button class="search-btn" @click="fetchTasks">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="10" cy="10" r="7"/>
+            <line x1="15" y1="15" x2="21" y2="21"/>
+          </svg>
+        </button>
+      </div>
 
-        <div class="filter-buttons">
-          <button 
-            v-for="filter in filters" 
-            :key="filter.value"
-            :class="['filter-btn', { active: currentFilter === filter.value }]"
-            @click="handleFilterChange(filter.value)"
-          >
-            {{ filter.label }}
-          </button>
-        </div>
+      <div class="filter-buttons">
+        <button 
+          v-for="filter in filters" 
+          :key="filter.value"
+          :class="['filter-btn', { active: currentFilter === filter.value }]"
+          @click="handleFilterChange(filter.value)"
+        >
+          {{ filter.label }}
+        </button>
+      </div>
 
-        <button class="nav-btn" @click="exportToLongImage">导出 PNG</button>
-        <button class="nav-btn" @click="exportToExcel">导出 Excel</button>
+      <button class="nav-btn" @click="exportToLongImage">导出 PNG</button>
+      <button class="nav-btn" @click="exportToExcel">导出 Excel</button>
 
-        <div class="import-export-group">
-          <label class="nav-btn import-csv-btn">
-            导入 CSV
-            <input type="file" accept=".csv" @change="importFromCSV" style="display: none;">
-          </label>
-          <button class="nav-btn template-btn" @click="downloadCSVTemplate">下载模板</button>
-          <button class="nav-btn export-csv-btn" @click="exportToCSV">导出 CSV</button>
-        </div>
+      <div class="import-export-group">
+        <label class="nav-btn import-csv-btn">
+          导入 CSV
+          <input type="file" accept=".csv" @change="importFromCSV" style="display: none;">
+        </label>
+        <button class="nav-btn template-btn" @click="downloadCSVTemplate">下载模板</button>
+        <button class="nav-btn export-csv-btn" @click="exportToCSV">导出 CSV</button>
+      </div>
 
-          <button class="nav-btn" @click="goToNextWeek">下周 ></button>
-      
+      <button class="nav-btn" @click="goToNextMonth">下月 ></button>
     </div>
 
-    <DayPilotScheduler 
-      :config="schedulerConfig" 
-      ref="schedulerRef" 
-    />
+    <!-- 甘特图容器 -->
+    <div class="scheduler-wrapper">
+      <DayPilotScheduler 
+        :config="schedulerConfig" 
+        ref="schedulerRef" 
+      />
+    </div>
 
-        <!-- 弹窗遮罩层 -->
+    <!-- 弹窗遮罩层 -->
     <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-content">
         <div class="modal-header">
@@ -82,12 +85,12 @@
           </div>
 
           <div class="inputBar">
-            <label>开始时间</label>
+            <label>开始日期</label>
             <input type="datetime-local" v-model="editingTask.start">
           </div>
 
           <div class="inputBar">
-            <label>结束时间</label>
+            <label>结束日期</label>
             <input type="datetime-local" v-model="editingTask.end">
           </div>
 
@@ -140,15 +143,6 @@
         </div>
       </div>
     </div>
-
-    <!-- 图片预览弹窗 -->
-    <div v-if="previewImageUrl" class="preview-overlay" @click="closePreview">
-      <div class="preview-content" @click.stop>
-        <img :src="previewImageUrl" alt="预览">
-        <button class="preview-close" @click="closePreview">×</button>
-      </div>
-    </div>
-
   </div>
 </template>
 
@@ -173,24 +167,6 @@ import * as XLSX from 'xlsx';
 
 const router = useRouter();
 
-// 动态计算列宽
-const calculateCellWidth = () => {
-  const width = window.innerWidth;
-  return width / 7.1;
-};
-
-const currentCellWidth = ref(calculateCellWidth());
-
-const handleResize = () => {
-  const newWidth = calculateCellWidth();
-  if (newWidth !== currentCellWidth.value) {
-    currentCellWidth.value = newWidth;
-    if (schedulerRef.value) {
-      schedulerRef.value.control.update({ cellWidth: newWidth });
-    }
-  }
-};
-
 // 筛选配置
 const filters = [
   { label: '所有', value: 'all' },
@@ -208,7 +184,8 @@ const currentFilter = ref('all');
 const searchKeyword = ref('');
 const currentTasks = ref([]);
 const schedulerRef = ref(null);
-const currentStartDate = ref(null); // 当前视图的起始日期
+const currentYear = ref(new Date().getFullYear());
+const currentMonth = ref(new Date().getMonth() + 1);
 let searchDebounceTimer = null;
 
 // 弹窗相关状态
@@ -224,61 +201,62 @@ const editingTask = ref({
   completed: false
 });
 
-// 日期工具函数
-const getMondayOfCurrentWeek = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const date = today.getDate();
-  
-  const localToday = new Date(year, month, date);
-  const day = localToday.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  
-  const monday = new Date(year, month, date + diff);
-  monday.setHours(0, 0, 0, 0);
-  return monday;
+// 优先级配置（仅用于背景色，彩条使用CSS类）
+const priorityConfig = {
+  3: { name: '高', bgColor: '#ffebee' },
+  2: { name: '中', bgColor: '#fff3e0' },
+  1: { name: '低', bgColor: '#e8f5e9' }
 };
 
-// 切换到上周
-const goToPreviousWeek = () => {
-  if (!currentStartDate.value) return;
-  const newDate = new Date(currentStartDate.value);
-  newDate.setDate(newDate.getDate() - 7);
-  currentStartDate.value = newDate;
+// 获取当前月份的天数
+const getDaysInMonth = (year, month) => {
+  return new Date(year, month, 0).getDate();
+};
+
+// 获取当前月份的第一天
+const getFirstDayOfMonth = (year, month) => {
+  return new Date(year, month - 1, 1);
+};
+
+// 切换到上月
+const goToPreviousMonth = () => {
+  if (currentMonth.value === 1) {
+    currentMonth.value = 12;
+    currentYear.value--;
+  } else {
+    currentMonth.value--;
+  }
   updateSchedulerStartDate();
-  fetchTasks();
 };
 
-// 切换到下周
-const goToNextWeek = () => {
-  if (!currentStartDate.value) return;
-  const newDate = new Date(currentStartDate.value);
-  newDate.setDate(newDate.getDate() + 7);
-  currentStartDate.value = newDate;
+// 切换到下月
+const goToNextMonth = () => {
+  if (currentMonth.value === 12) {
+    currentMonth.value = 1;
+    currentYear.value++;
+  } else {
+    currentMonth.value++;
+  }
   updateSchedulerStartDate();
-  fetchTasks();
 };
 
-// 更新 scheduler 的起始日期
+// 更新 scheduler 的起始日期和天数
 const updateSchedulerStartDate = () => {
-  if (schedulerRef.value && currentStartDate.value) {
+  if (schedulerRef.value && currentYear.value && currentMonth.value) {
+    const firstDay = getFirstDayOfMonth(currentYear.value, currentMonth.value);
+    const daysInMonth = getDaysInMonth(currentYear.value, currentMonth.value);
+    
     schedulerRef.value.control.update({
-      startDate: new DayPilot.Date(currentStartDate.value, true)
+      startDate: new DayPilot.Date(firstDay, true),
+      days: daysInMonth
     });
+    
+    fetchTasks();
   }
 };
 
-// 优先级配置（仅用于前端显示）
-const priorityConfig = {
-  3: { name: '高', color: '#ee3f3f', bgColor: '#ffebee', barColor: '#ee3f3fb8' },
-  2: { name: '中', color: '#f55515', bgColor: '#fff3e0', barColor: '#f55515eb' },
-  1: { name: '低', color: '#4caf50', bgColor: '#e8f5e9', barColor: '#6fbe90' }
-};
-
-// 显示消息的辅助函数（替代 args.control.message）
+// 显示消息
 const showMessage = (text, isError = false) => {
-  // 创建一个临时提示框
   const msg = document.createElement('div');
   msg.textContent = text;
   msg.style.cssText = `
@@ -296,11 +274,7 @@ const showMessage = (text, isError = false) => {
     animation: fadeOut 2s ease forwards;
   `;
   document.body.appendChild(msg);
-  
-  // 2秒后自动消失
-  setTimeout(() => {
-    msg.remove();
-  }, 2000);
+  setTimeout(() => msg.remove(), 2000);
 };
 
 // 添加动画样式
@@ -316,7 +290,6 @@ document.head.appendChild(style);
 
 // 打开编辑弹窗
 const openEditModal = (task) => {
-  // 将 "2026-04-30T00:00:00" 转换为 "2026-04-30T00:00" 供 datetime-local 使用
   const startValue = task.start ? task.start.replace(' ', 'T').slice(0, 16) : '';
   const endValue = task.end ? task.end.replace(' ', 'T').slice(0, 16) : '';
   
@@ -331,9 +304,7 @@ const openEditModal = (task) => {
     completed: task.completed || false
   };
   showModal.value = true;
-  // 加载附件
   loadAttachments(task.id);
-  showModal.value = true;
 };
 
 // 删除任务
@@ -344,7 +315,6 @@ const deleteTask = async () => {
   if (!confirmed) return;
   
   try {
-    // 使用别名调用 API
     const result = await deleteTaskApi(editingTask.value.id);
     
     if (result.code === 200) {
@@ -360,7 +330,7 @@ const deleteTask = async () => {
   }
 };
 
-// 关闭弹窗（不保存）
+// 关闭弹窗
 const closeModal = () => {
   showModal.value = false;
   attachments.value = [];
@@ -378,7 +348,6 @@ const closeModal = () => {
 // 保存修改
 const saveTaskChanges = async () => {
   try {
-    // datetime-local 的值是 "2026-04-30T00:00"，需要转换为 "2026-04-30 00:00:00"
     const startDateTime = editingTask.value.start ? editingTask.value.start.replace('T', ' ') + ':00' : '';
     const endDateTime = editingTask.value.end ? editingTask.value.end.replace('T', ' ') + ':00' : '';
     
@@ -391,8 +360,6 @@ const saveTaskChanges = async () => {
       type: editingTask.value.type || '',
       completed: editingTask.value.completed
     };
-
-    console.log('保存的任务数据:', updatedTask);
 
     const result = await updateTask(editingTask.value.id, updatedTask);
     
@@ -410,6 +377,7 @@ const saveTaskChanges = async () => {
   }
 };
 
+// 渲染 Scheduler
 const renderScheduler = (tasks) => {
   if (!schedulerRef.value) return;
 
@@ -423,11 +391,9 @@ const renderScheduler = (tasks) => {
   }));
 
   const events = tasks.map(task => {
-    // 确保日期格式正确
     let startDate = task.start;
     let endDate = task.end;
     
-    // 如果日期包含空格，转换为 T
     if (startDate && startDate.includes(' ')) {
       startDate = startDate.replace(' ', 'T');
     }
@@ -450,23 +416,20 @@ const renderScheduler = (tasks) => {
 
   schedulerRef.value.control.update({
     resources: resources,
-    events: events,
-    cellWidth: currentCellWidth.value
+    events: events
   });
 };
 
 // Scheduler 配置
 const schedulerConfig = ref({
   viewType: "Days",
-  days: 7,
   scale: "Day",
-  cellWidth: 200,
-  rowHeaderWidth: 0,  
+  cellWidth: 120,
+  rowHeaderWidth: 0,
   eventHeight: 80,
   headerHeight: 40,
-  treeEnabled: false,
   height: "auto",
-  eventMoveHandling: "Update",  // 开启拖拽移动
+  eventMoveHandling: "Update",
 
   onBeforeTimeHeaderRender: (args) => {
     const headerDate = args.header.start.getDatePart();
@@ -478,9 +441,8 @@ const schedulerConfig = ref({
 
   onBeforeEventRender: (args) => {
     const priority = args.data.priority;
-    const config = priorityConfig[priority] || priorityConfig[1];
     const completed = args.data.completed;
-    const type = args.data.type;  // 获取分类
+    const type = args.data.type;
 
     // 计算距离截止时间还有多少小时
     let hoursRemaining = 25;
@@ -492,8 +454,9 @@ const schedulerConfig = ref({
       hoursRemaining = diffMs / (1000 * 60 * 60);
     }
 
-    // 设置基础样式
+    // 设置背景色
     args.data.barHidden = true;
+    const config = priorityConfig[priority] || priorityConfig[1];
     args.data.backColor = config.bgColor;
     args.data.fontColor = "#333333";
 
@@ -503,8 +466,9 @@ const schedulerConfig = ref({
       args.data.fontColor = "#888888";
     }
 
-    // 统一设置 cssClass - 优先级：紧急 > 正常
-    const isUrgent = (hoursRemaining < 24 && hoursRemaining > 0 && !completed);
+    // 设置 cssClass - 优先级上边框
+    // 紧急任务使用闪烁样式，优先级效果会被父容器的优先级样式覆盖
+    const isUrgent = (hoursRemaining < 24 && hoursRemaining > -12 && !completed);
     
     if (isUrgent) {
       // 紧急任务：根据优先级使用不同的闪烁样式
@@ -525,18 +489,14 @@ const schedulerConfig = ref({
         args.data.cssClass = "priority-low";
       }
     }
-      
+    
     // 设置显示文本：如果有分类，显示 [分类] 标题
     if (type && type.trim()) {
       args.data.text = `[${type}] ${args.data.text}`;
-    } else {
-      args.data.text = args.data.text;
     }
   },
 
-  // 点击事件：打开编辑弹窗
   onEventClick: (args) => {
-
     const task = {
       id: args.e.id(),
       title: args.e.text(),
@@ -547,15 +507,10 @@ const schedulerConfig = ref({
       type: args.e.data.type || '',
       completed: args.e.data.completed
     };
-
-    console.log('提取的 task:', task);
-
     openEditModal(task);
   },
 
-  // 核心：禁止拖拽到其他行
   onEventMoving: (args) => {
-    // 检查是否拖拽到了不同的资源行
     if (args.newResource !== args.e.resource()) {
       args.allowed = false;
       showMessage("不能将任务移动到其他行", true);
@@ -564,34 +519,33 @@ const schedulerConfig = ref({
 
   onEventMoved: async (args) => {
     if (args.newResource !== args.e.resource()) {
-    showMessage("不能将任务移动到其他行", true);
-    await fetchTasks();
-    return;
-  }
-
-  try {
-    // DayPilot 返回的格式是 "2026-04-30T00:00:00"，需要转换为 "2026-04-30 00:00:00"
-    let newStart = args.newStart.toString().replace('T', ' ');
-    let newEnd = args.newEnd.toString().replace('T', ' ');
-    
-    const result = await updateTaskTime(
-      args.e.id(),
-      newStart,
-      newEnd
-    );
-    
-    if (result.code !== 200) {
-      throw new Error(result.message || "同步失败");
+      showMessage("不能将任务移动到其他行", true);
+      await fetchTasks();
+      return;
     }
-    
-    showMessage("同步成功");
-    await fetchTasks();
 
-  } catch (err) {
-    console.error("更新失败", err);
-    showMessage(err.message || "同步失败，已回滚", true);
-    await fetchTasks();
-  }
+    try {
+      let newStart = args.newStart.toString().replace('T', ' ');
+      let newEnd = args.newEnd.toString().replace('T', ' ');
+      
+      const result = await updateTaskTime(
+        args.e.id(),
+        newStart,
+        newEnd
+      );
+      
+      if (result.code !== 200) {
+        throw new Error(result.message || "同步失败");
+      }
+      
+      showMessage("同步成功");
+      await fetchTasks();
+
+    } catch (err) {
+      console.error("更新失败", err);
+      showMessage(err.message || "同步失败，已回滚", true);
+      await fetchTasks();
+    }
   }
 });
 
@@ -611,14 +565,12 @@ const exportToLongImage = async () => {
       return;
     }
     
-    // 获取容器的完整尺寸
     const scrollWidth = container.scrollWidth;
     const scrollHeight = container.scrollHeight;
     const originalWidth = container.style.width;
     const originalHeight = container.style.height;
     const originalOverflow = container.style.overflow;
     
-    // 临时移除滚动限制，显示完整内容
     container.style.width = `${scrollWidth}px`;
     container.style.height = `${scrollHeight}px`;
     container.style.overflow = 'visible';
@@ -632,14 +584,12 @@ const exportToLongImage = async () => {
       windowHeight: scrollHeight
     });
     
-    // 恢复原始样式
     container.style.width = originalWidth;
     container.style.height = originalHeight;
     container.style.overflow = originalOverflow;
     
-    // 下载长图
     const link = document.createElement('a');
-    link.download = `schedule_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+    link.download = `month_schedule_${currentYear.value}_${currentMonth.value}.png`;
     link.href = canvas.toDataURL();
     link.click();
     
@@ -647,7 +597,6 @@ const exportToLongImage = async () => {
   } catch (error) {
     console.error('导出失败:', error);
     showMessage('导出失败: ' + error.message, true);
-    // 恢复样式
     const container = document.querySelector('.scheduler_default_main');
     if (container) {
       container.style.overflow = '';
@@ -662,7 +611,6 @@ const exportToExcel = () => {
     return;
   }
   
-  // 准备数据
   const data = currentTasks.value.map(task => ({
     '标题': task.title,
     '描述': task.description || '',
@@ -673,23 +621,14 @@ const exportToExcel = () => {
     '状态': task.completed ? '已完成' : '未完成'
   }));
   
-  // 创建工作簿和工作表
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '任务列表');
   
-  // 设置列宽
   ws['!cols'] = [
-    { wch: 20 },  // 标题
-    { wch: 30 },  // 描述
-    { wch: 8 },   // 优先级
-    { wch: 18 },  // 开始时间
-    { wch: 18 },  // 结束时间
-    { wch: 12 },  // 分类
-    { wch: 8 }    // 状态
+    { wch: 20 }, { wch: 30 }, { wch: 8 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 8 }
   ];
   
-  // 导出文件
   XLSX.writeFile(wb, `tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
   showMessage('导出成功');
 };
@@ -699,7 +638,6 @@ const importFromCSV = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
   
-  // 验证文件类型
   if (!file.name.endsWith('.csv')) {
     showMessage('请选择 CSV 文件', true);
     return;
@@ -715,7 +653,6 @@ const importFromCSV = async (event) => {
       return;
     }
     
-    // 检查表头
     const headers = rows[0];
     const requiredHeaders = ['标题', '开始时间', '结束时间'];
     const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
@@ -725,7 +662,6 @@ const importFromCSV = async (event) => {
       return;
     }
     
-    // 确认导入
     const confirmed = confirm(`共发现 ${rows.length - 1} 条任务，确定要导入吗？`);
     if (!confirmed) return;
     
@@ -737,7 +673,6 @@ const importFromCSV = async (event) => {
       const row = rows[i];
       const taskData = {};
       
-      // 根据表头映射数据
       headers.forEach((header, index) => {
         const value = row[index] ? row[index].trim() : '';
         if (header === '标题') taskData.title = value;
@@ -749,14 +684,12 @@ const importFromCSV = async (event) => {
         else if (header === '状态') taskData.completed = value === '已完成' || value === 'true';
       });
       
-      // 验证必填字段
       if (!taskData.title || !taskData.start || !taskData.end) {
         failCount++;
         errors.push(`第 ${i + 1} 行: 缺少必填字段`);
         continue;
       }
       
-      // 格式化时间
       taskData.start = formatImportDateTime(taskData.start);
       taskData.end = formatImportDateTime(taskData.end);
       
@@ -773,13 +706,11 @@ const importFromCSV = async (event) => {
         errors.push(`第 ${i + 1} 行: 网络错误`);
       }
       
-      // 每10条显示一次进度
       if ((successCount + failCount) % 10 === 0) {
         showMessage(`正在导入... 成功: ${successCount}, 失败: ${failCount}`);
       }
     }
     
-    // 显示导入结果
     let message = `导入完成！\n成功: ${successCount}\n失败: ${failCount}`;
     if (errors.length > 0 && errors.length <= 5) {
       message += '\n\n错误详情:\n' + errors.join('\n');
@@ -789,17 +720,15 @@ const importFromCSV = async (event) => {
     alert(message);
     
     if (successCount > 0) {
-      await fetchTasks(); // 刷新视图
+      await fetchTasks();
     }
     
-    // 清空 input，允许重复导入同一文件
     event.target.value = '';
   };
   
   reader.readAsText(file, 'UTF-8');
 };
 
-// 解析 CSV
 const parseCSV = (content) => {
   const rows = [];
   const lines = content.split(/\r?\n/);
@@ -831,39 +760,36 @@ const parseCSV = (content) => {
   return rows;
 };
 
-// 解析优先级
 const parsePriority = (priorityStr) => {
   if (!priorityStr) return 2;
   const str = priorityStr.toString().toLowerCase();
   if (str === '高' || str === 'high' || str === '3') return 3;
   if (str === '低' || str === 'low' || str === '1') return 1;
-  return 2; // 默认中优先级
+  return 2;
 };
 
-// 格式化导入的日期时间
 const formatImportDateTime = (dateTimeStr) => {
   if (!dateTimeStr) return '';
   
-  // 处理 "2026-05-02" 格式（只有日期）
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateTimeStr)) {
     return dateTimeStr + ' 00:00:00';
   }
   
-  // 处理 "2026-05-02 14:30" 格式
   if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(dateTimeStr)) {
     return dateTimeStr + ':00';
   }
   
-  // 处理 "2026-05-02T14:30" 格式
   if (dateTimeStr.includes('T')) {
     return dateTimeStr.replace('T', ' ') + ':00';
   }
   
-  // 已经是完整格式
   return dateTimeStr;
 };
 
-// 下载 CSV 模板
+const addTask = async (taskData) => {
+  return await import('@/api/task').then(module => module.addTask(taskData));
+};
+
 const downloadCSVTemplate = () => {
   const headers = ['标题', '描述', '优先级', '开始时间', '结束时间', '分类', '状态'];
   const exampleRow = ['示例任务', '这是示例描述', '中', '2026-05-02 09:00', '2026-05-02 17:00', '工作', '未完成'];
@@ -880,17 +806,14 @@ const downloadCSVTemplate = () => {
   showMessage('模板下载成功');
 };
 
-// 导出为 CSV
 const exportToCSV = () => {
   if (!currentTasks.value || currentTasks.value.length === 0) {
     showMessage('没有可导出的数据', true);
     return;
   }
   
-  // 定义表头
   const headers = ['标题', '描述', '优先级', '开始时间', '结束时间', '分类', '状态'];
   
-  // 转换数据
   const rows = currentTasks.value.map(task => [
     task.title,
     task.description || '',
@@ -901,14 +824,11 @@ const exportToCSV = () => {
     task.completed ? '已完成' : '未完成'
   ]);
   
-  // 构建 CSV 内容
   let csvContent = headers.join(',') + '\n';
   
   rows.forEach(row => {
     const escapedRow = row.map(cell => {
-      // 处理空值
       const value = cell || '';
-      // 如果包含逗号、换行或引号，用双引号包裹
       if (value.includes(',') || value.includes('\n') || value.includes('"')) {
         return `"${value.replace(/"/g, '""')}"`;
       }
@@ -917,7 +837,6 @@ const exportToCSV = () => {
     csvContent += escapedRow.join(',') + '\n';
   });
   
-  // 下载文件（添加 BOM 解决中文乱码）
   const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -929,14 +848,12 @@ const exportToCSV = () => {
   showMessage(`导出成功，共 ${currentTasks.value.length} 条任务`);
 };
 
-// 获取完整附件URL
 const getFullAttachmentUrl = (url) => {
   if (!url) return '';
   if (url.startsWith('http')) return url;
   return `http://localhost:8080${url}`;
 };
 
-// 格式化文件大小
 const formatFileSize = (bytes) => {
   if (!bytes) return '';
   if (bytes < 1024) return bytes + ' B';
@@ -944,7 +861,6 @@ const formatFileSize = (bytes) => {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 };
 
-// 加载附件列表
 const loadAttachments = async (taskId) => {
   try {
     const result = await getAttachments(taskId);
@@ -956,13 +872,9 @@ const loadAttachments = async (taskId) => {
   }
 };
 
-// 上传附件
 const uploadNewAttachment = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
-  
-  console.log('选择的文件:', file);
-  console.log('当前任务ID:', editingTask.value.id);
   
   if (!editingTask.value.id) {
     showMessage('请先保存任务后再上传附件', true);
@@ -972,10 +884,7 @@ const uploadNewAttachment = async (event) => {
   uploading.value = true;
   
   try {
-    console.log('开始上传...');
     const result = await uploadAttachment(editingTask.value.id, file);
-    console.log('上传返回结果:', result);
-    
     if (result.code === 200) {
       attachments.value.push(result.data);
       showMessage('附件上传成功');
@@ -983,15 +892,14 @@ const uploadNewAttachment = async (event) => {
       throw new Error(result.message || '上传失败');
     }
   } catch (err) {
-    console.error('上传失败详细错误:', err);
-    showMessage('上传失败: ' + (err.message || '未知错误'), true);
+    console.error('上传失败', err);
+    showMessage('上传失败', true);
   } finally {
     uploading.value = false;
     event.target.value = '';
   }
 };
 
-// 删除附件
 const deleteAttachmentFile = async (attachmentId) => {
   if (!confirm('确定要删除此附件吗？')) return;
   
@@ -1010,16 +918,12 @@ const deleteAttachmentFile = async (attachmentId) => {
 };
 
 const previewImageUrl = ref(null);
-const previewImageName = ref('');
 
 const previewAttachment = async (attachment) => {
   if (attachment.fileType?.startsWith('image/')) {
-    // 图片预览
     previewImageUrl.value = getFullAttachmentUrl(attachment.downloadUrl);
-    previewImageName.value = attachment.fileName;
   } else {
-    // 非图片直接下载
-    await downloadAttachment(attachment);
+    window.open(getFullAttachmentUrl(attachment.downloadUrl), '_blank');
   }
 };
 
@@ -1027,22 +931,7 @@ const closePreview = () => {
   previewImageUrl.value = null;
 };
 
-// 添加一个获取任务详情的方法（可选）
-const getTaskDetails = (taskId) => {
-  const task = currentTasks.value.find(t => t.id === taskId);
-  if (task) {
-    console.log({
-      title: task.title,
-      description: task.description,
-      priority: task.priority,
-      start: task.start,
-      end: task.end,
-      completed: task.completed
-    });
-  }
-  return task;
-};
-
+// 获取任务列表
 const fetchTasks = async () => {
   if (!schedulerRef.value) return;
   
@@ -1055,9 +944,7 @@ const fetchTasks = async () => {
   try {
     let result;
     
-    const hasFilter = currentFilter.value !== 'all' || 
-                      searchKeyword.value.trim() || 
-                      currentStartDate.value;
+    const hasFilter = currentFilter.value !== 'all' || searchKeyword.value.trim();
     
     if (hasFilter) {
       const params = {};
@@ -1067,21 +954,23 @@ const fetchTasks = async () => {
       if (searchKeyword.value.trim()) {
         params.keyword = searchKeyword.value.trim();
       }
-      if (currentStartDate.value) {
-        const startDate = new Date(currentStartDate.value);
-        const endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 6);
-        params.startDate = startDate.toISOString().split('T')[0] + 'T00:00:00';
-        params.endDate = endDate.toISOString().split('T')[0] + 'T23:59:59';
-      }
+      const firstDay = getFirstDayOfMonth(currentYear.value, currentMonth.value);
+      const lastDay = new Date(currentYear.value, currentMonth.value, 0);
+      params.startDate = firstDay.toISOString().split('T')[0] + 'T00:00:00';
+      params.endDate = lastDay.toISOString().split('T')[0] + 'T23:59:59';
       
       result = await getFilteredTasks(params);
     } else {
-      result = await getTasks();
+      const firstDay = getFirstDayOfMonth(currentYear.value, currentMonth.value);
+      const lastDay = new Date(currentYear.value, currentMonth.value, 0);
+      const params = {
+        startDate: firstDay.toISOString().split('T')[0] + 'T00:00:00',
+        endDate: lastDay.toISOString().split('T')[0] + 'T23:59:59'
+      };
+      result = await getTasks(params);
     }
     
     if (result.code === 200) {
-      // 转换日期格式：将 "2026-04-30 00:00:00" 转换为 "2026-04-30T00:00:00"
       currentTasks.value = result.data.map(task => ({
         ...task,
         start: task.start ? task.start.replace(' ', 'T') : null,
@@ -1098,15 +987,12 @@ const fetchTasks = async () => {
   }
 };
 
-// 处理筛选变化
 const handleFilterChange = (value) => {
   currentFilter.value = value;
   fetchTasks();
 };
 
-// 处理搜索（带防抖）
 const handleSearch = () => {
-  
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
   searchDebounceTimer = setTimeout(() => {
     fetchTasks();
@@ -1120,28 +1006,26 @@ onMounted(() => {
     return;
   }
 
-  currentStartDate.value = getMondayOfCurrentWeek();
-  schedulerConfig.value.startDate = new DayPilot.Date(currentStartDate.value, true);
-
-  window.addEventListener('resize', handleResize);
-
-  fetchTasks();
-});
-
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize);
-});
-
-// 暴露方法给父组件
-defineExpose({
-  refreshTasks: fetchTasks,
-  getTaskDetails,
-  currentTasks
+  const firstDay = getFirstDayOfMonth(currentYear.value, currentMonth.value);
+  const daysInMonth = getDaysInMonth(currentYear.value, currentMonth.value);
+  
+  schedulerConfig.value.startDate = new DayPilot.Date(firstDay, true);
+  schedulerConfig.value.days = daysInMonth;
+  
+  setTimeout(() => {
+    if (schedulerRef.value) {
+      schedulerRef.value.control.update({
+        startDate: new DayPilot.Date(firstDay, true),
+        days: daysInMonth
+      });
+    }
+    fetchTasks();
+  }, 100);
 });
 </script>
 
 <style>
-/* 优先级上边框 */
+/* 优先级上边框 - 与 MainInterface 保持一致 */
 .priority-high {
   border-top: 5px solid #e05656 !important;
 }
@@ -1189,17 +1073,170 @@ defineExpose({
   border-radius: 8px !important;
 }
 
+/* DayPilot 事件内部样式 */
+:deep(.scheduler_default_event_inner) {
+  border-radius: 0 0 12px 12px !important;
+  padding: 6px 10px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  font-weight: 500;
+}
+
+:deep(.scheduler_default_timeheader_cell) {
+  background-color: #f8f9fa !important;
+  border-bottom: 2px solid #dee2e6 !important;
+}
+
+:deep(.scheduler_default_timeheader_cell_inner) {
+  font-weight: 600 !important;
+  color: rgb(44, 76, 150) !important;
+  font-size: 14px;
+}
+
+/* 黑夜模式覆盖 */
+body.dark-mode .month-view {
+  background: #1a1a2e;
+}
+
+body.dark-mode .toolbar {
+  background: #0f0f1a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .current-month {
+  color: #8ab3ff;
+}
+
+body.dark-mode .nav-btn {
+  background: #1a1a2e;
+  border-color: #2c2c3e;
+  color: #e0e0e0;
+}
+
+body.dark-mode .nav-btn:hover {
+  background: #5c83d8;
+  color: white;
+}
+
+body.dark-mode .search-box input {
+  background: #1a1a2e;
+  border-color: #2c2c3e;
+  color: #e0e0e0;
+}
+
+body.dark-mode .search-box input:focus {
+  border-color: #5c83d8;
+}
+
+body.dark-mode .search-btn {
+  background: #2a2a3e;
+  color: #8ab3ff;
+}
+
+body.dark-mode .filter-btn {
+  background: #1a1a2e;
+  border-color: #2c2c3e;
+  color: #e0e0e0;
+}
+
+body.dark-mode .filter-btn.active {
+  background: #5c83d8;
+  color: white;
+}
+
+/* DayPilot 黑夜模式 */
+body.dark-mode .scheduler_default_main,
+body.dark-mode .scheduler_default_cell {
+  background-color: #16213e !important;
+  color: #e0e0e0 !important;
+}
+
+body.dark-mode .scheduler_default_timeheader_cell {
+  background-color: #0f0f1a !important;
+  border-bottom: 2px solid #2c2c3e !important;
+  color: #8ab3ff !important;
+}
+
+body.dark-mode .scheduler_default_timeheader_cell_inner {
+  color: #8ab3ff !important;
+}
+
+body.dark-mode .scheduler_default_event_inner {
+  background-color: #0f3460 !important;
+  color: #e0e0e0 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 弹窗黑夜模式 */
+body.dark-mode .modal-overlay {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+body.dark-mode .modal-content {
+  background: #16213e;
+  color: #e0e0e0;
+}
+
+body.dark-mode .modal-header {
+  border-bottom-color: #2c2c3e;
+}
+
+body.dark-mode .modal-header h3 {
+  color: #8ab3ff;
+}
+
+body.dark-mode .inputBar label {
+  color: #e0e0e0;
+}
+
+body.dark-mode .inputBar input,
+body.dark-mode .inputBar textarea,
+body.dark-mode .inputBar select {
+  background: #2c2c3e;
+  border-color: #3a3a4e;
+  color: #e0e0e0;
+}
+
+body.dark-mode .save-btn {
+  background: #4a6fb8;
+}
+
+body.dark-mode .cancel-btn {
+  background: #2a2a3e;
+  color: #e0e0e0;
+}
+
+body.dark-mode .delete-btn {
+  background: #c62828;
+}
+
+/* 附件区域黑夜模式 */
+body.dark-mode .attachment-area {
+  background: #0f0f1a;
+  border-color: #2c2c3e;
+}
+
+body.dark-mode .attachment-item {
+  background: #1a1a2e;
+  border-color: #2c2c3e;
+}
+
+body.dark-mode .attachment-name {
+  color: #8ab3ff;
+}
+
+body.dark-mode .upload-btn {
+  background: #4a6fb8;
+}
 </style>
 
 <style scoped>
-.main-interface {
+.month-view {
   width: 100%;
   overflow-x: auto;
   background: rgb(255, 255, 255);
   min-height: 100%;
 }
 
-/* 工具栏 - 单行布局 */
 .toolbar {
   display: flex;
   align-items: center;
@@ -1209,12 +1246,10 @@ defineExpose({
   border-radius: 12px;
   margin-bottom: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  /* 关键修改：确保不换行，且均匀分布 */
   flex-wrap: nowrap;
   justify-content: space-between;
 }
 
-/* 导航按钮 */
 .nav-btn {
   padding: 6px 16px;
   border: 1px solid #ddd;
@@ -1225,7 +1260,7 @@ defineExpose({
   font-weight: 500;
   transition: all 0.2s ease;
   white-space: nowrap;
-  flex-shrink: 0; /* 防止被压缩 */
+  flex-shrink: 0;
 }
 
 .nav-btn:hover {
@@ -1234,12 +1269,18 @@ defineExpose({
   border-color: #5c83d8;
 }
 
-/* 搜索框容器 */
+.current-month {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2c4c96;
+  min-width: 150px;
+  text-align: center;
+}
+
 .search-box {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
-  /* 移除 min-width，让它可以自由伸缩 */
 }
 
 .search-box input {
@@ -1270,9 +1311,9 @@ defineExpose({
 
 .search-btn:hover {
   background: #456f9d;
+  color: white;
 }
 
-/* 筛选按钮容器 */
 .filter-buttons {
   display: flex;
   gap: 8px;
@@ -1299,6 +1340,28 @@ defineExpose({
   background: #5c83d8;
   color: white;
   border-color: #5c83d8;
+}
+
+.scheduler-wrapper {
+  width: 99%;
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid #eef2f6;
+  background: white;
+}
+
+.scheduler-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.scheduler-wrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.scheduler-wrapper::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
 }
 
 /* 弹窗样式 */
@@ -1400,7 +1463,7 @@ defineExpose({
 
 .modal-footer {
   display: flex;
-  justify-content: space-between;  /* 左右分布 */
+  justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
   border-top: 1px solid #eee;
@@ -1420,6 +1483,10 @@ defineExpose({
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s;
+}
+
+.delete-btn:hover {
+  background: #d43a2e;
 }
 
 .cancel-btn {
@@ -1449,64 +1516,6 @@ defineExpose({
 
 .save-btn:hover {
   background: #456f9d;
-}
-
-/* 响应式：屏幕过窄时允许换行 */
-@media (max-width: 800px) {
-  .toolbar {
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  
-  .search-box {
-    order: 1;
-  }
-  
-  .filter-buttons {
-    order: 2;
-  }
-  
-  .nav-btn:first-child {
-    order: 0;
-  }
-  
-  .nav-btn:last-child {
-    order: 3;
-  }
-}
-
-/* DayPilot 样式 */
-:deep(.scheduler_default_event_inner) {
-  border-radius: 0 0 12px 12px !important;
-  padding: 6px 10px !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  font-weight: 500;
-}
-
-:deep(.scheduler_default_timeheader_cell) {
-  background-color: #f8f9fa !important;
-  border-bottom: 2px solid #dee2e6 !important;
-}
-
-:deep(.scheduler_default_timeheader_cell_inner) {
-  font-weight: 600 !important;
-  color: rgb(44, 76, 150) !important;
-  font-size: 14px;
-}
-
-/* 滚动条 */
-.main-interface::-webkit-scrollbar {
-  height: 8px;
-}
-
-.main-interface::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.main-interface::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
 }
 
 /* 附件区域样式 */
@@ -1553,6 +1562,7 @@ defineExpose({
   text-decoration: underline;
   color: #5c83d8;
 }
+
 .attachment-size {
   font-size: 11px;
   color: #999;
@@ -1612,42 +1622,26 @@ defineExpose({
   color: #999;
 }
 
-/* 图片预览弹窗 */
-.preview-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-
-.preview-content {
-  position: relative;
-  max-width: 90vw;
-  max-height: 90vh;
-}
-
-.preview-content img {
-  max-width: 100%;
-  max-height: 90vh;
-  border-radius: 8px;
-}
-
-.preview-close {
-  position: absolute;
-  top: -40px;
-  right: 0;
-  background: white;
-  border: none;
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  font-size: 20px;
-  cursor: pointer;
+@media (max-width: 800px) {
+  .toolbar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .search-box {
+    order: 1;
+  }
+  
+  .filter-buttons {
+    order: 2;
+  }
+  
+  .nav-btn:first-child {
+    order: 0;
+  }
+  
+  .nav-btn:last-child {
+    order: 3;
+  }
 }
 </style>

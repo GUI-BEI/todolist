@@ -363,6 +363,103 @@ onMounted(() => {
 });
 </script>
 
+<style>
+/* 黑夜模式 - RecurringTaskForm */
+body.dark-mode .content-wrapper {
+  background: #1a1a2e;
+}
+
+body.dark-mode .task-form {
+  background: transparent;
+}
+
+body.dark-mode .inputBar span {
+  color: #e0e0e0;
+}
+
+body.dark-mode .inputBar input,
+body.dark-mode .inputBar select {
+  background: #2c2c3e;
+  border-color: #3a3a4e;
+  color: #e0e0e0;
+}
+
+body.dark-mode .inputBar input:focus,
+body.dark-mode .inputBar select:focus {
+  border-color: #5c83d8;
+  outline: none;
+}
+
+body.dark-mode .priority {
+  background-color: #2a2a3e;
+}
+
+body.dark-mode .weekday-label span {
+  color: #e0e0e0;
+}
+
+body.dark-mode .weekday-label input {
+  accent-color: #5c83d8;
+}
+
+body.dark-mode .monthly-select {
+  background: #2a2a3e;
+  border-color: #3a3a4e;
+  color: #e0e0e0;
+}
+
+body.dark-mode .tag-list {
+  background: #0f0f1a;
+}
+
+body.dark-mode .tag-item {
+  background-color: #4a6fb8 !important;
+  color: #ffffff !important;
+}
+
+body.dark-mode .tag-delete {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ff9999;
+}
+
+body.dark-mode .tag-add input {
+  background: #2c2c3e;
+  border-color: #3a3a4e;
+  color: #e0e0e0;
+}
+
+body.dark-mode .add-tag-btn {
+  background: #4a6fb8;
+}
+
+body.dark-mode .add-tag-btn:hover {
+  background: #5c83d8;
+}
+
+body.dark-mode .field-hint {
+  color: #888888;
+}
+
+body.dark-mode .weeks-unit {
+  color: #aaaaaa;
+}
+
+body.dark-mode .addBtn {
+  background: #4a6fb8;
+}
+
+body.dark-mode .addBtn:active {
+  background: #3a5a9a;
+}
+
+body.dark-mode input[type="date"],
+body.dark-mode input[type="time"] {
+  background: #2c2c3e;
+  border-color: #3a3a4e;
+  color: #e0e0e0;
+}
+</style>
+
 <style scoped>
 /* 原有样式保持不变，添加标签栏样式 */
 
