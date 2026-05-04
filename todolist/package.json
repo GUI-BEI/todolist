@@ -1,32 +1,40 @@
 {
   "name": "todolist",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
+  "version": "1.0.0",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build:win": "vite build && electron-builder --win"
   },
-  "dependencies": {
-    "@daypilot/daypilot-lite-vue": "^5.6.0",
-    "axios": "^1.15.2",
-    "crypto-js": "^4.2.0",
-    "echarts": "^6.0.0",
-    "exceljs": "^4.4.0",
-    "html2canvas": "^1.4.1",
-    "jspdf": "^4.2.1",
-    "pinia": "^3.0.4",
-    "vue": "^3.5.32",
-    "vue-router": "^5.0.4",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-vue": "^6.0.6",
-    "vite": "^8.0.8",
-    "vite-plugin-vue-devtools": "^8.1.1"
-  },
-  "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+  "build": {
+    "appId": "com.todolist.app",
+    "productName": "ToDoList",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/jre",
+        "to": "resources/jre"
+      },
+      {
+        "from": "../demo/target/demo-0.0.1-SNAPSHOT.jar",
+        "to": "resources/demo-0.0.1-SNAPSHOT.jar"
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

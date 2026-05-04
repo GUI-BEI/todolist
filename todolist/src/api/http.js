@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { getBaseUrl } from '@/utils/urlHelper';
 
 const http = axios.create({
-  baseURL: 'http://localhost:8080/api',
-  timeout: 10000, // 从5秒延长到10秒
+  baseURL: getBaseUrl() + '/api',
+  timeout: 10000,
   headers: { 'Content-Type': 'application/json' }
 });
 
@@ -20,10 +21,9 @@ http.interceptors.request.use(
   }
 );
 
-// 响应拦截器：统一处理错误和 token 过期
+// 响应拦截器
 http.interceptors.response.use(
   response => {
-    // 直接返回 response.data
     return response.data;
   },
   error => {
@@ -34,12 +34,10 @@ http.interceptors.response.use(
       const data = error.response.data;
       message = data.message || `请求失败: ${error.response.status}`;
       
-      // token 过期或无效，跳转到登录页
       if (error.response.status === 401) {
         localStorage.removeItem('token');
         localStorage.removeItem('userId');
         localStorage.removeItem('username');
-        // 跳转到登录页
         window.location.href = '/login';
         message = '登录已过期，请重新登录';
       }
@@ -47,9 +45,7 @@ http.interceptors.response.use(
       message = '服务器无响应，请检查后端是否启动';
     }
     
-    // 可以在这里用全局提示组件
     console.warn(message);
-    
     return Promise.reject(error);
   }
 );

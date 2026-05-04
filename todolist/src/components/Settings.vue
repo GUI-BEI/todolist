@@ -21,7 +21,7 @@
           style="display: none"
           @change="handleAvatarUpload"
         />
-        <p class="avatar-hint">点击上传头像（支持 JPG、PNG，最大2MB）</p>
+        <p class="avatar-hint">点击上传头像（支持 JPG、PNG，最大1MB）</p>
       </div>
 
       <!-- 基本信息设置 -->
@@ -104,7 +104,7 @@
 
         <div class="form-group" v-if="isSecuritySet">
           <div class="info-message">
-            ✅ 已设置密保问题
+            已设置密保问题
           </div>
         </div>
 
@@ -140,6 +140,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { getUserInfo, updateUser, setSecurityQuestion, uploadAvatar } from '@/api/user';
+import { getFullAvatarUrl } from '@/utils/urlHelper';
 
 const router = useRouter();
 
@@ -210,6 +211,8 @@ const handleAvatarUpload = async (event) => {
     if (result.code === 200) {
       avatarUrl.value = result.data;
       showMessage('头像上传成功');
+      window.dispatchEvent(new CustomEvent('avatarChanged'));
+      localStorage.setItem('avatarUpdated', Date.now().toString());
     } else {
       throw new Error(result.message || '上传失败');
     }
@@ -220,15 +223,6 @@ const handleAvatarUpload = async (event) => {
     isLoading.value = false;
     event.target.value = '';
   }
-};
-
-// 添加获取完整头像URL的方法
-const getFullAvatarUrl = (url) => {
-  if (!url) return '';
-  // 如果已经是完整URL，直接返回
-  if (url.startsWith('http')) return url;
-  // 否则拼接后端基础地址
-  return `http://localhost:8080${url}`;
 };
 
 const fetchUserInfo = async () => {
