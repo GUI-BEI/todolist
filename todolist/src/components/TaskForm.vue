@@ -74,6 +74,7 @@
 import { reactive, ref, onMounted } from 'vue';
 import { addTask, getTags, addTag, deleteTag } from '@/api/task';
 import { useRouter } from 'vue-router';
+import { showToast, showConfirm } from '@/utils/message';
 
 const router = useRouter();
 
@@ -117,17 +118,17 @@ const addNewTag = async () => {
       tags.value.push(result.data);
       newTagName.value = '';
     } else {
-      alert(result.message || '添加失败');
+      showToast(result.message || '添加失败');
     }
   } catch (error) {
     console.error('添加标签失败', error);
-    alert('添加失败');
+    showToast('添加失败');
   }
 };
 
 // 删除标签
 const removeTag = async (tagName) => {
-  if (!confirm(`确定要删除标签「${tagName}」吗？`)) return;
+  if (!showConfirm(`确定要删除标签「${tagName}」吗？`)) return;
   
   try {
     const result = await deleteTag(tagName);
@@ -138,11 +139,11 @@ const removeTag = async (tagName) => {
         form.type = '';
       }
     } else {
-      alert(result.message || '删除失败');
+      showToast(result.message || '删除失败');
     }
   } catch (error) {
     console.error('删除标签失败', error);
-    alert('删除失败');
+    showToast('删除失败');
   }
 };
 
@@ -163,13 +164,13 @@ const submitTask = async () => {
   }
   
   if (!form.title || !form.start || !form.end) {
-    alert('请填写完整信息');
+    showToast('请填写完整信息');
     return;
   }
 
   // 验证开始时间不能大于结束时间
   if (form.start >= form.end) {
-    alert('开始时间不能大于或等于结束时间');
+    showToast('开始时间不能大于或等于结束时间');
     return;
   }
 
@@ -187,7 +188,7 @@ const submitTask = async () => {
     
     const result = await addTask(taskData);
     if (result.code === 200) {
-      alert('添加成功！');
+      showToast('添加成功！');
       form.title = '';
       form.description = '';
       form.priority = 3;
@@ -195,11 +196,11 @@ const submitTask = async () => {
       form.end = '';
       form.type = '';
     } else {
-      alert(result.message || '添加失败');
+      showToast(result.message || '添加失败');
     }
   } catch (error) {
     console.error('Error:', error);
-    alert('添加失败，请稍后重试');
+    showToast('添加失败，请稍后重试');
   }
 };
 

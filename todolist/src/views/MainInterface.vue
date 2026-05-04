@@ -170,6 +170,8 @@ import {
 import { useRouter } from 'vue-router';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
+import { getFullAttachmentUrl } from '@/utils/urlHelper';
+import { showToast, showConfirm } from '@/utils/message';
 
 const router = useRouter();
 
@@ -247,7 +249,8 @@ const goToPreviousWeek = () => {
   newDate.setDate(newDate.getDate() - 7);
   currentStartDate.value = newDate;
   updateSchedulerStartDate();
-  fetchTasks();
+  // 不需要重新 fetch，直接重新渲染
+  renderScheduler(currentTasks.value);
 };
 
 // 切换到下周
@@ -257,7 +260,7 @@ const goToNextWeek = () => {
   newDate.setDate(newDate.getDate() + 7);
   currentStartDate.value = newDate;
   updateSchedulerStartDate();
-  fetchTasks();
+  renderScheduler(currentTasks.value);
 };
 
 // 更新 scheduler 的起始日期
@@ -340,7 +343,7 @@ const openEditModal = (task) => {
 const deleteTask = async () => {
   if (!editingTask.value.id) return;
   
-  const confirmed = confirm(`确定要删除任务「${editingTask.value.title}」吗？`);
+  const confirmed = showConfirm(`确定要删除任务「${editingTask.value.title}」吗？`);
   if (!confirmed) return;
   
   try {
@@ -477,66 +480,58 @@ const schedulerConfig = ref({
   },
 
   onBeforeEventRender: (args) => {
-    const priority = args.data.priority;
+  const priority = args.data.priority;
+  const completed = args.data.completed;
+  const type = args.data.type;
+
+  // 计算距离截止时间的剩余小时数
+  let hoursRemaining = 25;
+  if (args.data.end) {
+    const endStr = String(args.data.end);  // 先转字符串
+    const endDate = new Date(endStr.replace(' ', 'T'));
+    const now = new Date();
+    const diffMs = endDate - now;
+    hoursRemaining = diffMs / (1000 * 60 * 60);
+  }
+
+  // 设置基础样式
+  args.data.barHidden = true;
+  args.data.fontColor = "#333333";
+
+  if (completed) {
+    args.data.backColor = "#e0e0e0";
+    args.data.fontColor = "#888888";
+  } else {
     const config = priorityConfig[priority] || priorityConfig[1];
-    const completed = args.data.completed;
-    const type = args.data.type;  // 获取分类
-
-    // 计算距离截止时间还有多少小时
-    let hoursRemaining = 25;
-    const endStr = args.data.end;
-    if (endStr) {
-      let endDate = new Date(endStr);
-      const now = new Date();
-      const diffMs = endDate - now;
-      hoursRemaining = diffMs / (1000 * 60 * 60);
-    }
-
-    // 设置基础样式
-    args.data.barHidden = true;
     args.data.backColor = config.bgColor;
-    args.data.fontColor = "#333333";
+  }
 
-    // 根据完成状态调整样式
-    if (completed) {
-      args.data.backColor = "#e0e0e0";
-      args.data.fontColor = "#888888";
-    }
-
-    // 统一设置 cssClass - 优先级：紧急 > 正常
-    const isUrgent = (hoursRemaining < 24 && hoursRemaining > -12 && !completed);
-    
-    if (isUrgent) {
-      // 紧急任务：根据优先级使用不同的闪烁样式
-      if (priority === 3) {
-        args.data.cssClass = "flash-high";
-      } else if (priority === 2) {
-        args.data.cssClass = "flash-medium";
-      } else {
-        args.data.cssClass = "flash-low";
-      }
+  const isUrgent = (hoursRemaining < 24 && hoursRemaining > -12 && !completed);
+  
+  if (isUrgent) {
+    if (priority === 3) {
+      args.data.cssClass = "flash-high";
+    } else if (priority === 2) {
+      args.data.cssClass = "flash-medium";
     } else {
-      // 正常任务：只显示优先级上边框
-      if (priority === 3) {
-        args.data.cssClass = "priority-high";
-      } else if (priority === 2) {
-        args.data.cssClass = "priority-medium";
-      } else if (priority === 1) {
-        args.data.cssClass = "priority-low";
-      }
+      args.data.cssClass = "flash-low";
     }
-      
-    // 设置显示文本：如果有分类，显示 [分类] 标题
-    if (type && type.trim()) {
-      args.data.text = `[${type}] ${args.data.text}`;
-    } else {
-      args.data.text = args.data.text;
+  } else {
+    if (priority === 3) {
+      args.data.cssClass = "priority-high";
+    } else if (priority === 2) {
+      args.data.cssClass = "priority-medium";
+    } else if (priority === 1) {
+      args.data.cssClass = "priority-low";
     }
+  }
+  
+  if (type && type.trim()) {
+    args.data.text = `[${type}] ${args.data.text}`;
+  }
   },
 
-  // 点击事件：打开编辑弹窗
   onEventClick: (args) => {
-
     const task = {
       id: args.e.id(),
       title: args.e.text(),
@@ -564,34 +559,33 @@ const schedulerConfig = ref({
 
   onEventMoved: async (args) => {
     if (args.newResource !== args.e.resource()) {
-    showMessage("不能将任务移动到其他行", true);
-    await fetchTasks();
-    return;
-  }
-
-  try {
-    // DayPilot 返回的格式是 "2026-04-30T00:00:00"，需要转换为 "2026-04-30 00:00:00"
-    let newStart = args.newStart.toString().replace('T', ' ');
-    let newEnd = args.newEnd.toString().replace('T', ' ');
-    
-    const result = await updateTaskTime(
-      args.e.id(),
-      newStart,
-      newEnd
-    );
-    
-    if (result.code !== 200) {
-      throw new Error(result.message || "同步失败");
+      showMessage("不能将任务移动到其他行", true);
+      await fetchTasks();
+      return;
     }
-    
-    showMessage("同步成功");
-    await fetchTasks();
 
-  } catch (err) {
-    console.error("更新失败", err);
-    showMessage(err.message || "同步失败，已回滚", true);
-    await fetchTasks();
-  }
+    try {
+      let newStart = args.newStart.toString().replace('T', ' ');
+      let newEnd = args.newEnd.toString().replace('T', ' ');
+      
+      const result = await updateTaskTime(
+        args.e.id(),
+        newStart,
+        newEnd
+      );
+      
+      if (result.code !== 200) {
+        throw new Error(result.message || "同步失败");
+      }
+      
+      showMessage("同步成功");
+      await fetchTasks();
+
+    } catch (err) {
+      console.error("更新失败", err);
+      showMessage(err.message || "同步失败，已回滚", true);
+      await fetchTasks();
+    }
   }
 });
 
@@ -726,7 +720,7 @@ const importFromCSV = async (event) => {
     }
     
     // 确认导入
-    const confirmed = confirm(`共发现 ${rows.length - 1} 条任务，确定要导入吗？`);
+    const confirmed = showConfirm(`共发现 ${rows.length - 1} 条任务，确定要导入吗？`);
     if (!confirmed) return;
     
     let successCount = 0;
@@ -786,7 +780,7 @@ const importFromCSV = async (event) => {
     } else if (errors.length > 5) {
       message += `\n\n共有 ${errors.length} 条错误，请检查数据格式`;
     }
-    alert(message);
+    showToast(message);
     
     if (successCount > 0) {
       await fetchTasks(); // 刷新视图
@@ -929,13 +923,6 @@ const exportToCSV = () => {
   showMessage(`导出成功，共 ${currentTasks.value.length} 条任务`);
 };
 
-// 获取完整附件URL
-const getFullAttachmentUrl = (url) => {
-  if (!url) return '';
-  if (url.startsWith('http')) return url;
-  return `http://localhost:8080${url}`;
-};
-
 // 格式化文件大小
 const formatFileSize = (bytes) => {
   if (!bytes) return '';
@@ -993,7 +980,7 @@ const uploadNewAttachment = async (event) => {
 
 // 删除附件
 const deleteAttachmentFile = async (attachmentId) => {
-  if (!confirm('确定要删除此附件吗？')) return;
+  if (!showConfirm('确定要删除此附件吗？')) return;
   
   try {
     const result = await deleteAttachment(attachmentId);
@@ -1054,42 +1041,44 @@ const fetchTasks = async () => {
 
   try {
     let result;
+    const params = {};
     
-    const hasFilter = currentFilter.value !== 'all' || 
-                      searchKeyword.value.trim() || 
-                      currentStartDate.value;
-    
-    if (hasFilter) {
-      const params = {};
-      if (currentFilter.value !== 'all') {
-        params.priority = currentFilter.value;
-      }
-      if (searchKeyword.value.trim()) {
-        params.keyword = searchKeyword.value.trim();
-      }
-      if (currentStartDate.value) {
-        const startDate = new Date(currentStartDate.value);
-        const endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 6);
-        params.startDate = startDate.toISOString().split('T')[0] + 'T00:00:00';
-        params.endDate = endDate.toISOString().split('T')[0] + 'T23:59:59';
-      }
-      
-      result = await getFilteredTasks(params);
-    } else {
-      result = await getTasks();
+    if (currentFilter.value !== 'all') {
+      params.priority = currentFilter.value;
+    }
+    if (searchKeyword.value.trim()) {
+      params.keyword = searchKeyword.value.trim();
     }
     
+    // 保留日期范围（DayPilot 需要），但扩大范围
+    if (currentStartDate.value) {
+      const startDate = new Date(currentStartDate.value);
+      // 开始日期提前一天
+      startDate.setDate(startDate.getDate() - 1);
+      
+      const endDate = new Date(currentStartDate.value);
+      endDate.setDate(endDate.getDate() + 7); // 多覆盖一天
+      
+      params.startDate = startDate.toISOString().split('T')[0] + 'T00:00:00';
+      params.endDate = endDate.toISOString().split('T')[0] + 'T23:59:59';
+    }
+    
+    result = await getFilteredTasks(params);
+    
     if (result.code === 200) {
-      // 转换日期格式：将 "2026-04-30 00:00:00" 转换为 "2026-04-30T00:00:00"
       currentTasks.value = result.data.map(task => ({
         ...task,
         start: task.start ? task.start.replace(' ', 'T') : null,
         end: task.end ? task.end.replace(' ', 'T') : null
       }));
+
+      // 【调试】输出任务数据，看是否正确
+      console.log('获取到的任务数据:', JSON.stringify(currentTasks.value, null, 2));
+      
+      // 【调试】检查栅格是否挂载
+      console.log('schedulerRef 元素:', schedulerRef.value);
+
       renderScheduler(currentTasks.value);
-    } else {
-      throw new Error(result.message || "获取任务失败");
     }
   } catch (err) {
     console.error('获取任务失败', err);
@@ -1189,7 +1178,7 @@ defineExpose({
   border-radius: 8px !important;
 }
 
-* 黑夜模式覆盖 */
+/* 黑夜模式覆盖 */
 body.dark-mode {
   --scheduler-bg: #1a1a2e;
   --scheduler-cell-bg: #16213e;

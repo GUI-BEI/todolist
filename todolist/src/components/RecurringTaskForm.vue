@@ -132,6 +132,7 @@
 import { reactive, ref, onMounted } from 'vue';
 import { addTask, getTags, addTag, deleteTag } from '@/api/task';
 import { useRouter } from 'vue-router';
+import { showToast, showConfirm } from '@/utils/message';
 
 const router = useRouter();
 
@@ -191,17 +192,17 @@ const addNewTag = async () => {
       tags.value.push(result.data);
       newTagName.value = '';
     } else {
-      alert(result.message || '添加失败');
+      showToast(result.message || '添加失败');
     }
   } catch (error) {
     console.error('添加标签失败', error);
-    alert('添加失败');
+    showToast('添加失败');
   }
 };
 
 // 删除标签
 const removeTag = async (tagName) => {
-  if (!confirm(`确定要删除标签「${tagName}」吗？`)) return;
+  if (!showConfirm(`确定要删除标签「${tagName}」吗？`)) return;
   
   try {
     const result = await deleteTag(tagName);
@@ -212,11 +213,11 @@ const removeTag = async (tagName) => {
         form.type = '';
       }
     } else {
-      alert(result.message || '删除失败');
+      showToast(result.message || '删除失败');
     }
   } catch (error) {
     console.error('删除标签失败', error);
-    alert('删除失败');
+    showToast('删除失败');
   }
 };
 
@@ -310,24 +311,24 @@ const submitRecurringTask = async () => {
   }
   
   if (!form.title || !form.endDate) {
-    alert('请填写完整信息');
+    showToast('请填写完整信息');
     return;
   }
   
   if (!form.startTime || !form.endTime) {
-    alert('请填写开始时间和结束时间');
+    showToast('请填写开始时间和结束时间');
     return;
   }
   
   if (form.recurringType === 'weekly' && form.recurringDays.length === 0) {
-    alert('请至少选择一个重复的星期');
+    showToast('请至少选择一个重复的星期');
     return;
   }
   
   const tasks = generateRecurringTasks();
   
   if (tasks.length === 0) {
-    alert('没有生成任何任务，请检查结束日期和周期设置');
+    showToast('没有生成任何任务，请检查结束日期和周期设置');
     return;
   }
   
@@ -348,7 +349,7 @@ const submitRecurringTask = async () => {
     }
   }
   
-  alert(`周期任务创建完成！\n成功：${successCount} 个\n失败：${failCount} 个`);
+  showToast(`周期任务创建完成！\n成功：${successCount} 个\n失败：${failCount} 个`);
   
   if (successCount > 0) {
     form.title = '';

@@ -13,17 +13,15 @@
         {{ isDarkMode ? '☀' : '☽' }}
       </button>
 
-
-      <!-- 头像和用户名 -->
-      <div class="user-info" @click="router.push('/settings')">
+      <router-link v-if="!isLoggedIn" to="/login" class="login-link">登录</router-link>
+      
+      <div v-else class="user-info" @click="router.push('/settings')">
         <div class="avatar-small">
           <img v-if="avatarUrl" :src="getFullAvatarUrl(avatarUrl)" alt="头像">
           <span v-else class="avatar-small-placeholder">{{ usernameInitial }}</span>
         </div>
         <span class="username">{{ username }}</span>
       </div>
-
-      <router-link to="/login" style="margin-left: auto;">登录</router-link>
     </nav>
 
     <main class="page-container">
@@ -37,17 +35,23 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { getUserInfo } from '@/api/user';
 import { on, off } from '@/utils/eventBus';
+import { getFullAvatarUrl } from '@/utils/urlHelper';
 
 const router = useRouter();
 const username = ref('');
 const avatarUrl = ref('');
 const isDarkMode = ref(false);
 
+
+// 添加：判断是否已登录
+const isLoggedIn = computed(() => {
+  return !!localStorage.getItem('token');
+});
+
 // 切换黑夜模式
 const toggleDarkMode = () => {
   isDarkMode.value = !isDarkMode.value;
   localStorage.setItem('darkMode', isDarkMode.value);
-  // 应用到 body，方便全局样式
   if (isDarkMode.value) {
     document.body.classList.add('dark-mode');
   } else {
@@ -61,7 +65,6 @@ const loadDarkModePreference = () => {
   if (saved !== null) {
     isDarkMode.value = saved === 'true';
   } else {
-    // 可选：根据系统主题自动判断
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     isDarkMode.value = prefersDark;
   }
@@ -90,144 +93,169 @@ const fetchUserInfo = async () => {
   }
 };
 
-// 获取完整头像URL的方法
-const getFullAvatarUrl = (url) => {
-  if (!url) return '';
-  if (url.startsWith('http')) return url;
-  return `http://localhost:8080${url}`;
-};
-
-// 监听用户信息更新事件
 const handleUserInfoUpdate = () => {
   fetchUserInfo();
 };
 
+// 核心：监听 localStorage 变化
+window.addEventListener('storage', (e) => {
+  if (e.key === 'avatarUpdated') {
+    // 头像更新了，重新获取用户信息
+    fetchUserInfo();
+  }
+  if (e.key === 'token') {
+    isLoggedIn.value = !!e.newValue;
+    fetchUserInfo();
+  }
+});
+
+// 备选：每秒检查一次（storage 事件在 Electron 同窗口可能不触发）
+let checkTimer;
+const startCheck = () => {
+  checkTimer = setInterval(() => {
+    const token = localStorage.getItem('token');
+    if (!!token !== isLoggedIn.value) {
+      fetchUserInfo();
+    }
+  }, 1000);
+};
+
+// 核心：监听自定义事件（同窗口内通信用）
+window.addEventListener('avatarChanged', () => {
+  fetchUserInfo();
+});
+
 onMounted(() => {
+  loadDarkModePreference();  // 添加这行！
   fetchUserInfo();
   on('userLoggedIn', handleUserInfoUpdate);
+  startCheck();
 });
 
 onUnmounted(() => {
   off('userLoggedIn', handleUserInfoUpdate);
+  clearInterval(checkTimer);
 });
 </script>
 
 <style>
-
-/* 全局黑夜模式变量 */
-:root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f7fe;
-  --bg-card: #ffffff;
-  --text-primary: #333333;
-  --text-secondary: #666666;
-  --border-color: #ddd;
-  --shadow-color: rgba(0, 0, 0, 0.1);
-  --nav-bg: #f0f0f0;
-  --modal-bg: #ffffff;
-  --input-bg: #ffffff;
-  --scheduler-header: #f8f9fa;
-  --scheduler-border: #dee2e6;
+/* ===== 全局样式（影响所有组件） ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-body.dark-mode {
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-card: #0f3460;
-  --text-primary: #e0e0e0;
-  --text-secondary: #aaaaaa;
-  --border-color: #2c2c3e;
-  --shadow-color: rgba(0, 0, 0, 0.3);
-  --nav-bg: #0f0f1a;
-  --modal-bg: #16213e;
-  --input-bg: #2c2c3e;
-  --scheduler-header: #1a1a2e;
-  --scheduler-border: #2c2c3e;
-}
-
-/* 全局样式使用 CSS 变量 */
 body {
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #f5f7fe;
 }
+
+/* ===== 黑夜模式全局 ===== */
+body.dark-mode {
+  background: #1a1a2e;
+  color: #e0e0e0;
+}
+</style>
+
+<style scoped>
+/* ===== App.vue 专属样式 ===== */
 
 .app-wrapper {
-    display: flex;
-    flex-direction: column;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
+/* 导航栏样式 */
 .nav-bar {
-    height: 60px; /* 固定高度 */
-    background: #f0f0f0;
-    display: flex;
-    align-items: center;
-    padding: 0 20px;
-    flex-shrink: 0; /* 禁止被压缩 */
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-wrap: wrap;
 }
 
-.page-container {
-    flex: 1; /* 自动撑开剩余所有空间 */
-    overflow-y: auto; /* 内容多了自动出现滚动条，不会挤压导航栏 */
-    width: 100%;
-}
-
-/* 导航栏link效果 */
-.nav-bar a{
-  /* 去除下划线 */
+.nav-bar a {
   text-decoration: none;
-  /* 左边距 */
-  margin-left: 4vw;
-  /* 内边距 */
-  padding: 5px 8px 5px 8px;
-  /* 圆角 */
-  border-radius: 15px;
-  /* 颜色 */
-  color: rgb(39, 73, 151);
-  /* 粗体 */
-  font-weight: 1000;
-  /* 平滑过渡 */
-  transition: all 0.3s ease;
+  color: #555;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
 }
 
-/* 鼠标悬停效果 */
 .nav-bar a:hover {
-  background-color: #dddfe7;
-   /* 轻微上浮 */
-  transform: translateY(-2px);
+  background: #e8ecf8;
+  color: #2c4c96;
 }
 
-/* 激活状态的样式 */
 .nav-bar a.router-link-active {
-  background-color: #5c83d8;
+  background: #5c83d8;
   color: white;
 }
 
-/* 导航栏右侧用户信息 */
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
+/* 黑夜模式按钮 */
+.dark-mode-btn {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  padding: 6px 10px;
   cursor: pointer;
-  padding: 5px 12px;
-  border-radius: 30px;
-  transition: all 0.3s;
-}
-
-.user-info:hover {
-  background-color: #dddfe7;
-}
-
-.avatar-small {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  overflow: hidden;
-  background-color: #5c83d8;
+  font-size: 18px;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.dark-mode-btn:hover {
+  background: #f0f0f0;
+}
+
+/* 登录按钮 */
+.login-link {
+  margin-left: auto !important;
+  background: #5c83d8;
+  color: white !important;
+  padding: 8px 20px !important;
+  border-radius: 20px !important;
+}
+
+.login-link:hover {
+  background: #456f9d !important;
+  color: white !important;
+}
+
+/* 用户信息 */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 20px;
+  transition: all 0.2s;
+}
+
+.user-info:hover {
+  background: #f0f0f0;
+}
+
+.avatar-small {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #e0e0e0;
 }
 
 .avatar-small img {
@@ -244,35 +272,78 @@ body {
   justify-content: center;
   background: #5c83d8;
   color: white;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: bold;
 }
 
 .username {
   font-size: 14px;
   font-weight: 500;
-  color: #2c4c96;
+  color: #333;
 }
 
-/* 黑夜模式切换按钮 */
-.dark-mode-btn {
-  margin-left: auto;
-  padding: 6px 16px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  margin-right: 16px;
+/* 主内容区域 */
+.page-container {
+  flex: 1;
+  padding: 0;
 }
 
-.dark-mode-btn:hover {
-  background: #5c83d8;
+/* ===== 黑夜模式 ===== */
+body.dark-mode .nav-bar {
+  background: #0f0f1a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .nav-bar a {
+  color: #cccccc;
+}
+
+body.dark-mode .nav-bar a:hover {
+  background: #1a1a2e;
+  color: #8ab3ff;
+}
+
+body.dark-mode .nav-bar a.router-link-active {
+  background: #4a6fb8;
   color: white;
-  border-color: #5c83d8;
+}
+
+body.dark-mode .dark-mode-btn {
+  border-color: #2c2c3e;
+  color: #e0e0e0;
+}
+
+body.dark-mode .dark-mode-btn:hover {
+  background: #1a1a2e;
+}
+
+body.dark-mode .login-link {
+  background: #4a6fb8;
+  color: white !important;
+}
+
+body.dark-mode .user-info:hover {
+  background: #1a1a2e;
+}
+
+body.dark-mode .username {
+  color: #e0e0e0;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+  .nav-bar {
+    padding: 10px 16px;
+    gap: 8px;
+  }
+  
+  .nav-bar a {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  
+  .username {
+    display: none;
+  }
 }
 </style>

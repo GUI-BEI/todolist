@@ -164,6 +164,8 @@ import {
 import { useRouter } from 'vue-router';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
+import { getFullAttachmentUrl } from '@/utils/urlHelper';
+import { showToast, showConfirm } from '@/utils/message';
 
 const router = useRouter();
 
@@ -311,7 +313,7 @@ const openEditModal = (task) => {
 const deleteTask = async () => {
   if (!editingTask.value.id) return;
   
-  const confirmed = confirm(`确定要删除任务「${editingTask.value.title}」吗？`);
+  const confirmed = showConfirm(`确定要删除任务「${editingTask.value.title}」吗？`);
   if (!confirmed) return;
   
   try {
@@ -662,7 +664,7 @@ const importFromCSV = async (event) => {
       return;
     }
     
-    const confirmed = confirm(`共发现 ${rows.length - 1} 条任务，确定要导入吗？`);
+    const confirmed = showConfirm(`共发现 ${rows.length - 1} 条任务，确定要导入吗？`);
     if (!confirmed) return;
     
     let successCount = 0;
@@ -717,7 +719,7 @@ const importFromCSV = async (event) => {
     } else if (errors.length > 5) {
       message += `\n\n共有 ${errors.length} 条错误，请检查数据格式`;
     }
-    alert(message);
+    showToast(message);
     
     if (successCount > 0) {
       await fetchTasks();
@@ -848,12 +850,6 @@ const exportToCSV = () => {
   showMessage(`导出成功，共 ${currentTasks.value.length} 条任务`);
 };
 
-const getFullAttachmentUrl = (url) => {
-  if (!url) return '';
-  if (url.startsWith('http')) return url;
-  return `http://localhost:8080${url}`;
-};
-
 const formatFileSize = (bytes) => {
   if (!bytes) return '';
   if (bytes < 1024) return bytes + ' B';
@@ -901,7 +897,7 @@ const uploadNewAttachment = async (event) => {
 };
 
 const deleteAttachmentFile = async (attachmentId) => {
-  if (!confirm('确定要删除此附件吗？')) return;
+  if (!showConfirm('确定要删除此附件吗？')) return;
   
   try {
     const result = await deleteAttachment(attachmentId);

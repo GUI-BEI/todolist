@@ -42,6 +42,7 @@ import { reactive, ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { login, register } from '@/api/user';
 import { emit } from '@/utils/eventBus';  // 导入事件总线
+import { showToast, showConfirm } from '@/utils/message';
 
 const router = useRouter();
 const route = useRoute();
@@ -82,7 +83,7 @@ const loadRememberedPassword = () => {
 
 const handleLogin = async () => {
   if (!form.username || !form.password) {
-    alert('请输入用户名和密码');
+    showToast('请输入用户名和密码');
     return;
   }
 
@@ -102,7 +103,7 @@ const handleLogin = async () => {
       // 发送登录成功事件，通知 App.vue 更新用户信息
       emit('userLoggedIn');
       
-      alert('登录成功！');
+      showToast('登录成功！');
       
       const redirectPath = route.query.redirect;
       if (redirectPath) {
@@ -111,11 +112,11 @@ const handleLogin = async () => {
         router.push('/');
       }
     } else {
-      alert(result.message || '登录失败');
+      showToast(result.message || '登录失败');
     }
   } catch (error) {
     console.error('登录请求错误:', error);
-    alert('服务器连接失败');
+    showToast('服务器连接失败');
   } finally {
     isLoading.value = false;
   }
@@ -123,12 +124,12 @@ const handleLogin = async () => {
 
 const handleRegister = async () => {
   if (!form.username || !form.password) {
-    alert('请输入用户名和密码');
+    showToast('请输入用户名和密码');
     return;
   }
 
   if (form.password.length < 6) {
-    alert('密码长度至少6位');
+    showToast('密码长度至少6位');
     return;
   }
 
@@ -138,14 +139,14 @@ const handleRegister = async () => {
     const result = await register(form.username, form.password);
     
     if (result.code === 200) {
-      alert('注册成功！请登录');
+      showToast('注册成功！请登录');
       form.password = '';
     } else {
-      alert(result.message || '注册失败');
+      showToast(result.message || '注册失败');
     }
   } catch (error) {
     console.error('注册请求错误:', error);
-    alert('服务器连接失败');
+    showToast('服务器连接失败');
   } finally {
     isLoading.value = false;
   }
@@ -154,17 +155,19 @@ const handleRegister = async () => {
 const handleVisitorLogin = async () => {
   isLoading.value = true;
   
+  // 先填入游客账号密码
+  form.username = 'visitor';
+  form.password = 'visitor123';
+  
   try {
     const result = await login('visitor', 'visitor123');
     if (result.code === 200) {
       localStorage.setItem('token', result.data.token);
       localStorage.setItem('userId', result.data.userId);
-      localStorage.setItem('username', '游客');
-      
-      // 发送登录成功事件
+      localStorage.setItem('username', result.data.username);
       emit('userLoggedIn');
       
-      alert('以游客身份进入');
+      showToast('以游客身份进入');
       
       const redirectPath = route.query.redirect;
       if (redirectPath) {
@@ -172,9 +175,12 @@ const handleVisitorLogin = async () => {
       } else {
         router.push('/');
       }
+    } else {
+      showToast(result.message || '游客登录失败');
     }
   } catch (error) {
-    alert('游客登录失败，请先注册账号');
+    console.error('游客登录失败', error);
+    showToast('游客登录失败，请稍后重试');
   } finally {
     isLoading.value = false;
   }

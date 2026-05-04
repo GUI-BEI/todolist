@@ -14,7 +14,10 @@ const router = createRouter({
   routes: [
     { 
       path: '/', 
-      redirect: '/login'  // 添加这行，将根路径重定向到登录页
+      redirect: () => {
+        const token = localStorage.getItem('token');
+        return token ? '/week' : '/login';
+      }
     },
     { 
       path: '/week', 
