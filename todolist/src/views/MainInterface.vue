@@ -1189,7 +1189,7 @@ defineExpose({
   border-radius: 8px !important;
 }
 
-* 黑夜模式覆盖 */
+/* 黑夜模式覆盖 */
 body.dark-mode {
   --scheduler-bg: #1a1a2e;
   --scheduler-cell-bg: #16213e;
