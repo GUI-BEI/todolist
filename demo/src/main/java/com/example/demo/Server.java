@@ -392,8 +392,8 @@ public class Server {
         }
 
         // 检查文件大小（限制2MB）
-        if (file.getSize() > 2 * 1024 * 1024) {
-            return Result.fail(400, "图片大小不能超过2MB");
+        if (file.getSize() > 10 * 1024 * 1024) {
+            return Result.fail(400, "图片大小不能超过10MB");
         }
 
         try {
@@ -452,9 +452,9 @@ public class Server {
             return Result.fail(404, "任务不存在");
         }
 
-        // 检查文件大小（限制10MB）
-        if (file.getSize() > 10 * 1024 * 1024) {
-            return Result.fail(400, "文件大小不能超过10MB");
+        // 检查文件大小（限制50MB）
+        if (file.getSize() > 50 * 1024 * 1024) {
+            return Result.fail(400, "文件大小不能超过50MB");
         }
 
         try {

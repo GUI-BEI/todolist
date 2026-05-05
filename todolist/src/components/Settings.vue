@@ -21,7 +21,7 @@
           style="display: none"
           @change="handleAvatarUpload"
         />
-        <p class="avatar-hint">点击上传头像（支持 JPG、PNG，最大1MB）</p>
+        <p class="avatar-hint">点击上传头像（支持 JPG、PNG，最大10MB）</p>
       </div>
 
       <!-- 基本信息设置 -->
@@ -199,7 +199,7 @@ const handleAvatarUpload = async (event) => {
   }
   
   // 验证文件大小（2MB）
-  if (file.size > 2 * 1024 * 1024) {
+  if (file.size > 10 * 1024 * 1024) {
     showMessage('图片大小不能超过2MB', true);
     return;
   }

@@ -128,7 +128,7 @@
                   选择文件
                   <input type="file" @change="uploadNewAttachment" style="display: none;">
                 </label>
-                <span class="upload-hint">支持图片、文档等，最大10MB</span>
+                <span class="upload-hint">支持图片、文档等，最大50MB</span>
               </div>
             </div>
           </div>
@@ -878,9 +878,17 @@ const loadAttachments = async (taskId) => {
   }
 };
 
+// 上传附件
 const uploadNewAttachment = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
+  
+  // 前端大小校验
+  if (file.size > 50 * 1024 * 1024) {
+    showMessage('文件大小不能超过50MB', true);
+    event.target.value = '';
+    return;
+  }
   
   if (!editingTask.value.id) {
     showMessage('请先保存任务后再上传附件', true);
@@ -891,6 +899,7 @@ const uploadNewAttachment = async (event) => {
   
   try {
     const result = await uploadAttachment(editingTask.value.id, file);
+    
     if (result.code === 200) {
       attachments.value.push(result.data);
       showMessage('附件上传成功');
@@ -898,8 +907,8 @@ const uploadNewAttachment = async (event) => {
       throw new Error(result.message || '上传失败');
     }
   } catch (err) {
-    console.error('上传失败', err);
-    showMessage('上传失败', true);
+    console.error('上传失败:', err);
+    showMessage('上传失败: ' + (err.message || '未知错误'), true);
   } finally {
     uploading.value = false;
     event.target.value = '';
