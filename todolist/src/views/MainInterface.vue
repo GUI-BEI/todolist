@@ -164,7 +164,8 @@ import {
   deleteTask as deleteTaskApi,
   uploadAttachment,
   getAttachments,
-  deleteAttachment
+  deleteAttachment,
+  addTask
 } from '@/api/task';
 
 import { useRouter } from 'vue-router';
@@ -343,11 +344,10 @@ const openEditModal = (task) => {
 const deleteTask = async () => {
   if (!editingTask.value.id) return;
   
-  const confirmed = showConfirm(`确定要删除任务「${editingTask.value.title}」吗？`);
+  const confirmed = await showConfirm(`确定要删除任务「${editingTask.value.title}」吗？`);
   if (!confirmed) return;
   
   try {
-    // 使用别名调用 API
     const result = await deleteTaskApi(editingTask.value.id);
     
     if (result.code === 200) {
@@ -378,13 +378,27 @@ const closeModal = () => {
   };
 };
 
-// 保存修改
+/// 保存修改
 const saveTaskChanges = async () => {
   try {
-    // datetime-local 的值是 "2026-04-30T00:00"，需要转换为 "2026-04-30 00:00:00"
-    const startDateTime = editingTask.value.start ? editingTask.value.start.replace('T', ' ') + ':00' : '';
-    const endDateTime = editingTask.value.end ? editingTask.value.end.replace('T', ' ') + ':00' : '';
-    
+    const startDateTime = editingTask.value.start 
+      ? editingTask.value.start.replace('T', ' ') + ':00' 
+      : '';
+    const endDateTime = editingTask.value.end 
+      ? editingTask.value.end.replace('T', ' ') + ':00' 
+      : '';
+
+    // 时间校验
+    if (startDateTime && endDateTime) {
+      const start = new Date(startDateTime.replace(' ', 'T'));
+      const end = new Date(endDateTime.replace(' ', 'T'));
+      
+      if (end <= start) {
+        showMessage('结束时间必须晚于开始时间', true);
+        return;
+      }
+    }
+
     const updatedTask = {
       title: editingTask.value.title,
       description: editingTask.value.description,
@@ -394,8 +408,6 @@ const saveTaskChanges = async () => {
       type: editingTask.value.type || '',
       completed: editingTask.value.completed
     };
-
-    console.log('保存的任务数据:', updatedTask);
 
     const result = await updateTask(editingTask.value.id, updatedTask);
     
@@ -693,7 +705,6 @@ const importFromCSV = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
   
-  // 验证文件类型
   if (!file.name.endsWith('.csv')) {
     showMessage('请选择 CSV 文件', true);
     return;
@@ -709,7 +720,6 @@ const importFromCSV = async (event) => {
       return;
     }
     
-    // 检查表头
     const headers = rows[0];
     const requiredHeaders = ['标题', '开始时间', '结束时间'];
     const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
@@ -719,8 +729,7 @@ const importFromCSV = async (event) => {
       return;
     }
     
-    // 确认导入
-    const confirmed = showConfirm(`共发现 ${rows.length - 1} 条任务，确定要导入吗？`);
+    const confirmed = await showConfirm(`共发现 ${rows.length - 1} 条任务，确定要导入吗？`);
     if (!confirmed) return;
     
     let successCount = 0;
@@ -731,7 +740,7 @@ const importFromCSV = async (event) => {
       const row = rows[i];
       const taskData = {};
       
-      // 根据表头映射数据
+      // 根据表头映射数据（6 列）
       headers.forEach((header, index) => {
         const value = row[index] ? row[index].trim() : '';
         if (header === '标题') taskData.title = value;
@@ -740,17 +749,15 @@ const importFromCSV = async (event) => {
         else if (header === '开始时间') taskData.start = value;
         else if (header === '结束时间') taskData.end = value;
         else if (header === '分类') taskData.type = value;
-        else if (header === '状态') taskData.completed = value === '已完成' || value === 'true';
+        // 不再支持“状态”列导入
       });
       
-      // 验证必填字段
       if (!taskData.title || !taskData.start || !taskData.end) {
         failCount++;
         errors.push(`第 ${i + 1} 行: 缺少必填字段`);
         continue;
       }
       
-      // 格式化时间
       taskData.start = formatImportDateTime(taskData.start);
       taskData.end = formatImportDateTime(taskData.end);
       
@@ -767,13 +774,11 @@ const importFromCSV = async (event) => {
         errors.push(`第 ${i + 1} 行: 网络错误`);
       }
       
-      // 每10条显示一次进度
       if ((successCount + failCount) % 10 === 0) {
         showMessage(`正在导入... 成功: ${successCount}, 失败: ${failCount}`);
       }
     }
     
-    // 显示导入结果
     let message = `导入完成！\n成功: ${successCount}\n失败: ${failCount}`;
     if (errors.length > 0 && errors.length <= 5) {
       message += '\n\n错误详情:\n' + errors.join('\n');
@@ -783,10 +788,9 @@ const importFromCSV = async (event) => {
     showToast(message);
     
     if (successCount > 0) {
-      await fetchTasks(); // 刷新视图
+      await fetchTasks();
     }
     
-    // 清空 input，允许重复导入同一文件
     event.target.value = '';
   };
   
@@ -874,35 +878,29 @@ const downloadCSVTemplate = () => {
   showMessage('模板下载成功');
 };
 
-// 导出为 CSV
+// 导出为 CSV（6 列格式，无 ID 无状态，与导入模板一致）
 const exportToCSV = () => {
   if (!currentTasks.value || currentTasks.value.length === 0) {
     showMessage('没有可导出的数据', true);
     return;
   }
   
-  // 定义表头
-  const headers = ['标题', '描述', '优先级', '开始时间', '结束时间', '分类', '状态'];
+  const headers = ['标题', '描述', '优先级', '开始时间', '结束时间', '分类'];
   
-  // 转换数据
   const rows = currentTasks.value.map(task => [
     task.title,
     task.description || '',
     task.priority === 3 ? '高' : (task.priority === 2 ? '中' : '低'),
-    task.start || '',
-    task.end || '',
-    task.type || '',
-    task.completed ? '已完成' : '未完成'
+    task.start ? task.start.replace('T', ' ').slice(0, 16) : '',
+    task.end ? task.end.replace('T', ' ').slice(0, 16) : '',
+    task.type || ''
   ]);
   
-  // 构建 CSV 内容
   let csvContent = headers.join(',') + '\n';
   
   rows.forEach(row => {
     const escapedRow = row.map(cell => {
-      // 处理空值
       const value = cell || '';
-      // 如果包含逗号、换行或引号，用双引号包裹
       if (value.includes(',') || value.includes('\n') || value.includes('"')) {
         return `"${value.replace(/"/g, '""')}"`;
       }
@@ -911,7 +909,6 @@ const exportToCSV = () => {
     csvContent += escapedRow.join(',') + '\n';
   });
   
-  // 下载文件（添加 BOM 解决中文乱码）
   const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -980,7 +977,7 @@ const uploadNewAttachment = async (event) => {
 
 // 删除附件
 const deleteAttachmentFile = async (attachmentId) => {
-  if (!showConfirm('确定要删除此附件吗？')) return;
+  if (!await showConfirm('确定要删除此附件吗？')) return;
   
   try {
     const result = await deleteAttachment(attachmentId);

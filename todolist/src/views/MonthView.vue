@@ -158,7 +158,8 @@ import {
   deleteTask as deleteTaskApi,
   uploadAttachment,
   getAttachments,
-  deleteAttachment
+  deleteAttachment,
+  addTask
 } from '@/api/task';
 
 import { useRouter } from 'vue-router';
@@ -313,7 +314,7 @@ const openEditModal = (task) => {
 const deleteTask = async () => {
   if (!editingTask.value.id) return;
   
-  const confirmed = showConfirm(`确定要删除任务「${editingTask.value.title}」吗？`);
+  const confirmed = await showConfirm(`确定要删除任务「${editingTask.value.title}」吗？`);
   if (!confirmed) return;
   
   try {
@@ -350,9 +351,24 @@ const closeModal = () => {
 // 保存修改
 const saveTaskChanges = async () => {
   try {
-    const startDateTime = editingTask.value.start ? editingTask.value.start.replace('T', ' ') + ':00' : '';
-    const endDateTime = editingTask.value.end ? editingTask.value.end.replace('T', ' ') + ':00' : '';
-    
+    const startDateTime = editingTask.value.start 
+      ? editingTask.value.start.replace('T', ' ') + ':00' 
+      : '';
+    const endDateTime = editingTask.value.end 
+      ? editingTask.value.end.replace('T', ' ') + ':00' 
+      : '';
+
+    // 时间校验
+    if (startDateTime && endDateTime) {
+      const start = new Date(startDateTime.replace(' ', 'T'));
+      const end = new Date(endDateTime.replace(' ', 'T'));
+      
+      if (end <= start) {
+        showMessage('结束时间必须晚于开始时间', true);
+        return;
+      }
+    }
+
     const updatedTask = {
       title: editingTask.value.title,
       description: editingTask.value.description,
@@ -664,7 +680,7 @@ const importFromCSV = async (event) => {
       return;
     }
     
-    const confirmed = showConfirm(`共发现 ${rows.length - 1} 条任务，确定要导入吗？`);
+    const confirmed = await showConfirm(`共发现 ${rows.length - 1} 条任务，确定要导入吗？`);
     if (!confirmed) return;
     
     let successCount = 0;
@@ -683,7 +699,6 @@ const importFromCSV = async (event) => {
         else if (header === '开始时间') taskData.start = value;
         else if (header === '结束时间') taskData.end = value;
         else if (header === '分类') taskData.type = value;
-        else if (header === '状态') taskData.completed = value === '已完成' || value === 'true';
       });
       
       if (!taskData.title || !taskData.start || !taskData.end) {
@@ -788,10 +803,6 @@ const formatImportDateTime = (dateTimeStr) => {
   return dateTimeStr;
 };
 
-const addTask = async (taskData) => {
-  return await import('@/api/task').then(module => module.addTask(taskData));
-};
-
 const downloadCSVTemplate = () => {
   const headers = ['标题', '描述', '优先级', '开始时间', '结束时间', '分类', '状态'];
   const exampleRow = ['示例任务', '这是示例描述', '中', '2026-05-02 09:00', '2026-05-02 17:00', '工作', '未完成'];
@@ -814,16 +825,15 @@ const exportToCSV = () => {
     return;
   }
   
-  const headers = ['标题', '描述', '优先级', '开始时间', '结束时间', '分类', '状态'];
+  const headers = ['标题', '描述', '优先级', '开始时间', '结束时间', '分类'];
   
   const rows = currentTasks.value.map(task => [
     task.title,
     task.description || '',
     task.priority === 3 ? '高' : (task.priority === 2 ? '中' : '低'),
-    task.start || '',
-    task.end || '',
-    task.type || '',
-    task.completed ? '已完成' : '未完成'
+    task.start ? task.start.replace('T', ' ').slice(0, 16) : '',
+    task.end ? task.end.replace('T', ' ').slice(0, 16) : '',
+    task.type || ''
   ]);
   
   let csvContent = headers.join(',') + '\n';
@@ -897,7 +907,7 @@ const uploadNewAttachment = async (event) => {
 };
 
 const deleteAttachmentFile = async (attachmentId) => {
-  if (!showConfirm('确定要删除此附件吗？')) return;
+  if (!await showConfirm('确定要删除此附件吗？')) return;
   
   try {
     const result = await deleteAttachment(attachmentId);

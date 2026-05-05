@@ -324,6 +324,13 @@ const submitRecurringTask = async () => {
     showToast('请至少选择一个重复的星期');
     return;
   }
+
+  if (form.start && form.end) {
+    if (form.end <= form.start) {
+      showToast('结束时间必须晚于开始时间', true);
+      return;
+    }
+  }
   
   const tasks = generateRecurringTasks();
   
