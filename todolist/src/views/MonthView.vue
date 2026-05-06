@@ -314,11 +314,23 @@ const openEditModal = (task) => {
 const deleteTask = async () => {
   if (!editingTask.value.id) return;
   
-  const confirmed = await showConfirm(`确定要删除任务「${editingTask.value.title}」吗？`);
+  const taskId = editingTask.value.id;
+  const taskTitle = editingTask.value.title;
+  
+  const confirmed = await showConfirm(`确定要删除任务「${taskTitle}」及其相关附件吗？`);
   if (!confirmed) return;
   
   try {
-    const result = await deleteTaskApi(editingTask.value.id);
+    // 获取并删除所有附件
+    const attachmentsResult = await getAttachments(taskId);
+    if (attachmentsResult.code === 200 && attachmentsResult.data.length > 0) {
+      for (const att of attachmentsResult.data) {
+        await deleteAttachment(att.id);
+      }
+    }
+    
+    // 删除任务
+    const result = await deleteTaskApi(taskId);
     
     if (result.code === 200) {
       showMessage("删除成功");

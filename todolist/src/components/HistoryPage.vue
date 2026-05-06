@@ -5,19 +5,74 @@
             <div class="chart-note">本周任务统计</div>
         </div>
 
+        <!-- 筛选栏 -->
+        <div class="filter-bar">
+            <select v-model="dateFilter" @change="filterTasks" class="filter-select">
+                <option value="all">全部任务</option>
+                <option value="week">本周</option>
+                <option value="month">本月</option>
+                <option value="year">今年</option>
+            </select>
+            <input type="text" v-model="searchKeyword" placeholder="搜索任务..." class="search-input" @input="filterTasks">
+        </div>
+
         <div class="task-list">
-            <h3>已完成任务列表</h3>
-            <div v-if="completedTasks.length === 0" class="empty-tip">
+            <h3>已完成任务列表 <span class="task-count">(共 {{ filteredCompletedTasks.length }} 项)</span></h3>
+            
+            <div v-if="filteredCompletedTasks.length === 0" class="empty-tip">
                 暂无已完成任务
             </div>
-            <div v-for="task in completedTasks" :key="task.id" class="Card">
-                <h4 class="taskTitle">{{ task.title }}</h4>
+            
+            <div v-for="task in filteredCompletedTasks" :key="task.id" class="Card">
+                <div class="card-header">
+                    <h4 class="taskTitle">{{ task.title }}</h4>
+                    <span class="priority-badge" :class="priorityClass(task.priority)">
+                        {{ priorityMap[task.priority] }}
+                    </span>
+                </div>
+                
                 <p class="taskDescription">{{ task.description || '无描述' }}</p>
-                <p class="taskPriority">优先级: {{ priorityMap[task.priority] }}</p>
+                
+                <div class="task-detail-row">
+                    <span class="detail-label">分类：</span>
+                    <span class="detail-value">{{ task.type || '未分类' }}</span>
+                </div>
+                
                 <div class="taskTime">
-                    <span class="taskStart">{{ formatDate(task.start) }}</span>
-                    <span>-</span>
-                    <span class="taskEnd">{{ formatDate(task.end) }}</span>
+                    <div class="time-item">
+                        <span class="time-label">开始</span>
+                        <span class="time-value">{{ formatDateTime(task.start) }}</span>
+                    </div>
+                    <div class="time-arrow">→</div>
+                    <div class="time-item">
+                        <span class="time-label">结束</span>
+                        <span class="time-value">{{ formatDateTime(task.end) }}</span>
+                    </div>
+                </div>
+                
+                <div class="task-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">耗时</span>
+                        <span class="stat-value">{{ calculateDuration(task.start, task.end) }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">完成于</span>
+                        <span class="stat-value">{{ task.completedAt || formatDate(task.end) || '未知' }}</span>
+                    </div>
+                </div>
+                
+                <!-- 附件预览 -->
+                <div v-if="task.attachments && task.attachments.length > 0" class="attachments-preview">
+                    <span class="attachment-label">📎 附件 ({{ task.attachments.length }})</span>
+                    <div class="attachment-thumbnails">
+                        <div v-for="att in task.attachments.slice(0, 3)" :key="att.id" class="attachment-thumb">
+                            <span class="thumb-icon">📄</span>
+                            <span class="thumb-name">{{ att.fileName }}</span>
+                        </div>
+                        <span v-if="task.attachments.length > 3" class="more-attach">
+                            +{{ task.attachments.length - 3 }}
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -27,46 +82,66 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import * as echarts from 'echarts';
-import { getTasks } from '@/api/task';
+import { getTasks, getAttachments } from '@/api/task';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const allTasks = ref([]);
 const chartRef = ref(null);
+const dateFilter = ref('all');
+const searchKeyword = ref('');
+const attachmentsCache = ref(new Map());
+
 const priorityMap = { 1: '🟢 低', 2: '🟡 中', 3: '🔴 高' };
 
-// 所有已完成任务
-const completedTasks = computed(() => {
-    return allTasks.value.filter(task => task.completed === true);
-});
+const priorityClass = (priority) => {
+    return {
+        1: 'priority-low-badge',
+        2: 'priority-medium-badge',
+        3: 'priority-high-badge'
+    }[priority];
+};
 
-// 获取本周的任务（用于饼图）
-const thisWeekTasks = computed(() => {
-    const thisWeekRange = getThisWeekRange();
-    return allTasks.value.filter(task => {
-        const taskStart = new Date(task.start);
-        return taskStart >= thisWeekRange.start && taskStart <= thisWeekRange.end;
-    });
-});
+// 格式化日期时间（完整显示）
+const formatDateTime = (dateStr) => {
+    if (!dateStr) return '未设置';
+    return dateStr.replace('T', ' ').slice(0, 19);
+};
 
-// 本周统计数据
-const thisWeekStats = computed(() => {
-    const total = thisWeekTasks.value.length;
-    const finished = thisWeekTasks.value.filter(t => t.completed === true).length;
-    return { finished, unfinished: total - finished, total };
-});
+// 格式化日期（仅日期）
+const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    return dateStr.replace('T', ' ').slice(0, 10);
+};
 
-// 获取本周的起止日期（周一到周日）
+// 计算任务耗时
+const calculateDuration = (start, end) => {
+    if (!start || !end) return '未知';
+    
+    const startDate = new Date(start.replace(' ', 'T'));
+    const endDate = new Date(end.replace(' ', 'T'));
+    const diffMs = endDate - startDate;
+    
+    if (diffMs <= 0) return '0分钟';
+    
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (diffHours > 0) {
+        return `${diffHours}小时${diffMinutes > 0 ? diffMinutes + '分钟' : ''}`;
+    }
+    return `${diffMinutes}分钟`;
+};
+
+// 获取本周起止日期
 const getThisWeekRange = () => {
     const today = new Date();
     const dayOfWeek = today.getDay();
-    // 计算本周一（周一为第一天）
     const monday = new Date(today);
     const diff = today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
     monday.setDate(diff);
     monday.setHours(0, 0, 0, 0);
     
-    // 计算本周日
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
@@ -74,14 +149,86 @@ const getThisWeekRange = () => {
     return { start: monday, end: sunday };
 };
 
-// 格式化日期显示
-const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    // 处理 "2026-04-30T00:00:00" 或 "2026-04-30 00:00:00" 格式
-    return dateStr.replace('T', ' ').slice(0, 16);
+// 获取本月起止日期
+const getThisMonthRange = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    return { start, end };
 };
 
-// 初始化饼图
+// 获取今年起止日期
+const getThisYearRange = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+    return { start, end };
+};
+
+// 筛选任务
+const filterTasks = () => {
+    let filtered = allTasks.value.filter(task => task.completed === true);
+    
+    // 日期筛选
+    const now = new Date();
+    if (dateFilter.value === 'week') {
+        const weekRange = getThisWeekRange();
+        filtered = filtered.filter(task => {
+            const endDate = new Date(task.end.replace(' ', 'T'));
+            return endDate >= weekRange.start && endDate <= weekRange.end;
+        });
+    } else if (dateFilter.value === 'month') {
+        const monthRange = getThisMonthRange();
+        filtered = filtered.filter(task => {
+            const endDate = new Date(task.end.replace(' ', 'T'));
+            return endDate >= monthRange.start && endDate <= monthRange.end;
+        });
+    } else if (dateFilter.value === 'year') {
+        const yearRange = getThisYearRange();
+        filtered = filtered.filter(task => {
+            const endDate = new Date(task.end.replace(' ', 'T'));
+            return endDate >= yearRange.start && endDate <= yearRange.end;
+        });
+    }
+    
+    // 关键词搜索
+    if (searchKeyword.value.trim()) {
+        const keyword = searchKeyword.value.trim().toLowerCase();
+        filtered = filtered.filter(task => 
+            task.title.toLowerCase().includes(keyword) ||
+            (task.description && task.description.toLowerCase().includes(keyword)) ||
+            (task.type && task.type.toLowerCase().includes(keyword))
+        );
+    }
+    
+    // 按完成时间倒序排序（最新完成的在前）
+    filtered.sort((a, b) => {
+        const dateA = a.completedAt ? new Date(a.completedAt) : new Date(a.end);
+        const dateB = b.completedAt ? new Date(b.completedAt) : new Date(b.end);
+        return dateB - dateA;
+    });
+    
+    return filtered;
+};
+
+const filteredCompletedTasks = computed(() => filterTasks());
+
+// 本周任务统计
+const thisWeekTasks = computed(() => {
+    const weekRange = getThisWeekRange();
+    return allTasks.value.filter(task => {
+        const taskStart = new Date(task.start);
+        return taskStart >= weekRange.start && taskStart <= weekRange.end;
+    });
+});
+
+const thisWeekStats = computed(() => {
+    const total = thisWeekTasks.value.length;
+    const finished = thisWeekTasks.value.filter(t => t.completed === true).length;
+    return { finished, unfinished: total - finished, total };
+});
+
+// 初始化图表
 const initChart = () => {
     if (!chartRef.value) return;
     
@@ -101,52 +248,49 @@ const initChart = () => {
                 { name: '未完成', itemStyle: { color: '#2c4c96' } }
             ]
         },
-        series: [
-            {
-                name: '本周任务统计',
-                type: 'pie',
-                radius: '55%',
-                center: ['50%', '50%'],
-                data: [
-                    { value: finished, name: '已完成', itemStyle: { color: '#00bcd4' } },
-                    { value: unfinished, name: '未完成', itemStyle: { color: '#2c4c96' } }
-                ],
-                emphasis: {
-                    scale: true
-                },
-                label: {
-                    show: true,
-                    formatter: '{b}: {d}%'
-                }
-            }
-        ]
+        series: [{
+            name: '本周任务统计',
+            type: 'pie',
+            radius: '55%',
+            center: ['50%', '50%'],
+            data: [
+                { value: finished, name: '已完成', itemStyle: { color: '#00bcd4' } },
+                { value: unfinished, name: '未完成', itemStyle: { color: '#2c4c96' } }
+            ],
+            label: { show: true, formatter: '{b}: {d}%' }
+        }]
     };
     
-    // 如果本周没有任务，显示提示
     if (total === 0) {
         option = {
-            title: {
-                text: '本周暂无任务',
-                left: 'center',
-                top: 'center',
-                textStyle: {
-                    color: '#999',
-                    fontSize: 14
-                }
-            },
+            title: { text: '本周暂无任务', left: 'center', top: 'center', textStyle: { color: '#999' } },
             series: []
         };
     }
     
     chart.setOption(option);
-    
-    // 响应窗口大小变化
-    window.addEventListener('resize', () => {
-        chart.resize();
-    });
+    window.addEventListener('resize', () => chart.resize());
 };
 
-// 获取所有任务
+// 加载附件信息
+const loadAttachments = async (taskId) => {
+    if (attachmentsCache.value.has(taskId)) {
+        return attachmentsCache.value.get(taskId);
+    }
+    
+    try {
+        const result = await getAttachments(taskId);
+        if (result.code === 200) {
+            attachmentsCache.value.set(taskId, result.data);
+            return result.data;
+        }
+    } catch (err) {
+        console.error('加载附件失败', err);
+    }
+    return [];
+};
+
+// 获取所有任务并补充附件信息
 const fetchAllTasks = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -157,7 +301,14 @@ const fetchAllTasks = async () => {
     try {
         const result = await getTasks();
         if (result.code === 200) {
-            allTasks.value = result.data;
+            const tasks = result.data;
+            
+            // 为每个任务加载附件
+            for (const task of tasks) {
+                task.attachments = await loadAttachments(task.id);
+            }
+            
+            allTasks.value = tasks;
             initChart();
         } else {
             throw new Error(result.message || '获取任务失败');
@@ -185,8 +336,15 @@ body.dark-mode .chart-container {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-body.dark-mode .chart-container .chart-note {
-  color: #aaaaaa;
+body.dark-mode .filter-bar {
+  background: #0f0f1a;
+}
+
+body.dark-mode .filter-select,
+body.dark-mode .search-input {
+  background: #2c2c3e;
+  border-color: #3a3a4e;
+  color: #e0e0e0;
 }
 
 body.dark-mode .task-list h3 {
@@ -203,10 +361,6 @@ body.dark-mode .Card {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-body.dark-mode .Card:hover {
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
-}
-
 body.dark-mode .taskTitle {
   color: #e0e0e0;
 }
@@ -215,8 +369,41 @@ body.dark-mode .taskDescription {
   color: #aaaaaa;
 }
 
-body.dark-mode .taskTime {
+body.dark-mode .detail-label {
   color: #888888;
+}
+
+body.dark-mode .detail-value {
+  color: #cccccc;
+}
+
+body.dark-mode .time-label {
+  color: #888888;
+}
+
+body.dark-mode .time-value {
+  color: #e0e0e0;
+}
+
+body.dark-mode .stat-label {
+  color: #888888;
+}
+
+body.dark-mode .stat-value {
+  color: #cccccc;
+}
+
+body.dark-mode .attachments-preview {
+  background: #0f0f1a;
+  border-color: #2c2c3e;
+}
+
+body.dark-mode .attachment-thumb {
+  background: #1a1a2e;
+}
+
+body.dark-mode .thumb-name {
+  color: #8ab3ff;
 }
 </style>
 
@@ -230,7 +417,7 @@ body.dark-mode .taskTime {
     background: white;
     border-radius: 20px;
     padding: 20px;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
@@ -241,13 +428,44 @@ body.dark-mode .taskTime {
     margin-top: 10px;
 }
 
+/* 筛选栏 */
+.filter-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 12px 16px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.filter-select {
+    padding: 8px 16px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+}
+
+.search-input {
+    flex: 1;
+    padding: 8px 16px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    font-size: 14px;
+    outline: none;
+}
+
+.search-input:focus {
+    border-color: #5c83d8;
+}
+
 .content-wrapper {
     background: rgb(245, 247, 254);
     min-height: 100%;
-    display: flex;
-    flex-direction: column;
-    padding: 5%;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    padding: 20px 5%;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .task-list h3 {
@@ -255,6 +473,12 @@ body.dark-mode .taskTime {
     color: #2c4c96;
     font-size: 20px;
     font-weight: 600;
+}
+
+.task-count {
+    font-size: 14px;
+    color: #888;
+    font-weight: normal;
 }
 
 .empty-tip {
@@ -268,8 +492,8 @@ body.dark-mode .taskTime {
 
 .Card {
     background-color: white;
-    border-radius: 15px;
-    padding: 16px 24px;
+    border-radius: 16px;
+    padding: 20px 24px;
     margin-top: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     transition: all 0.2s;
@@ -280,38 +504,168 @@ body.dark-mode .taskTime {
     transform: translateY(-2px);
 }
 
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
 .taskTitle {
     font-size: 18px;
     font-weight: 600;
-    margin-bottom: 8px;
     color: #333;
+    margin: 0;
+}
+
+.priority-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.priority-low-badge {
+    background: #e8f5e9;
+    color: #4caf50;
+}
+
+.priority-medium-badge {
+    background: #fff3e0;
+    color: #ff9800;
+}
+
+.priority-high-badge {
+    background: #ffebee;
+    color: #f44336;
 }
 
 .taskDescription {
     color: #666;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
     font-size: 14px;
     line-height: 1.4;
 }
 
-.taskPriority {
-    padding: 4px 0;
-    border-radius: 15px;
-    font-size: 14px;
-    font-weight: 500;
-    margin-bottom: 8px;
+.task-detail-row {
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.detail-label {
+    color: #999;
+}
+
+.detail-value {
+    color: #555;
 }
 
 .taskTime {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    background: #f8f9fa;
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin: 12px 0;
+}
+
+.time-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.time-label {
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 4px;
+}
+
+.time-value {
+    font-size: 13px;
+    font-family: monospace;
+    color: #333;
+    font-weight: 500;
+}
+
+.time-arrow {
+    color: #5c83d8;
+    font-size: 18px;
+    padding: 0 12px;
+}
+
+.task-stats {
+    display: flex;
+    gap: 24px;
+    padding-top: 12px;
+    border-top: 1px solid #eee;
+}
+
+.stat-item {
+    display: flex;
     gap: 8px;
-    color: #888;
+    align-items: baseline;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #999;
+}
+
+.stat-value {
     font-size: 14px;
+    font-weight: 500;
+    color: #5c83d8;
+}
+
+/* 附件预览 */
+.attachments-preview {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #f5f5f5;
+    border-radius: 10px;
+}
+
+.attachment-label {
+    font-size: 12px;
+    color: #666;
+    display: block;
     margin-bottom: 8px;
 }
 
-.taskStart, .taskEnd {
-    font-family: monospace;
+.attachment-thumbnails {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.attachment-thumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: white;
+    border-radius: 16px;
+    font-size: 12px;
+}
+
+.thumb-icon {
+    font-size: 12px;
+}
+
+.thumb-name {
+    color: #2c4c96;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.more-attach {
+    font-size: 12px;
+    color: #999;
 }
 </style>
