@@ -33,6 +33,7 @@ public class EventItemRepository {
         item.setType(rs.getString("type"));
         item.setCompleted(rs.getBoolean("completed"));
         item.setUserId(rs.getLong("user_id"));
+        item.setCompletedAt(rs.getObject("completed_at", LocalDateTime.class));
         return item;
     };
 
@@ -48,6 +49,7 @@ public class EventItemRepository {
                 end_date TIMESTAMP,
                 type VARCHAR(50),
                 completed BOOLEAN DEFAULT FALSE,
+                completed_at TIMESTAMP NULL,
                 user_id BIGINT NOT NULL
             )
             """, tableName);
@@ -61,8 +63,8 @@ public class EventItemRepository {
     public EventItem save(Long userId, EventItem task) {
         String tableName = getTaskTableName(userId);
         String sql = String.format("""
-            INSERT INTO %s (title, description, priority, start_date, end_date, type, completed, user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO %s (title, description, priority, start_date, end_date, type, completed, completed_at, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, tableName);
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
@@ -74,14 +76,14 @@ public class EventItemRepository {
             ps.setObject(5, task.getEnd());
             ps.setString(6, task.getType());
             ps.setBoolean(7, task.getCompleted() == null ? false : task.getCompleted());
-            ps.setLong(8, userId);
+            ps.setObject(8, task.getCompletedAt());
+            ps.setLong(9, userId);
             return ps;
         }, keyHolder);
         task.setId(Objects.requireNonNull(keyHolder.getKey()).longValue());
         return task;
     }
 
-    // 获取用户所有任务（按优先级降序，结束日期升序）
     public List<EventItem> findByUserId(Long userId) {
         String tableName = getTaskTableName(userId);
         String sql = String.format("SELECT * FROM %s WHERE user_id = ? ORDER BY priority DESC, end_date ASC", tableName);
@@ -105,7 +107,8 @@ public class EventItemRepository {
                 start_date = ?, 
                 end_date = ?, 
                 type = ?, 
-                completed = ? 
+                completed = ?,
+                completed_at = ?
             WHERE id = ? AND user_id = ?
             """, tableName);
         jdbcTemplate.update(sql,
@@ -116,6 +119,7 @@ public class EventItemRepository {
                 task.getEnd(),
                 task.getType(),
                 task.getCompleted(),
+                task.getCompletedAt(),
                 task.getId(),
                 userId);
         return task;
@@ -136,7 +140,6 @@ public class EventItemRepository {
         jdbcTemplate.update(sql, newStart, newEnd, taskId, userId);
     }
 
-    // 筛选方法（按优先级降序，结束日期升序）
     public List<EventItem> findByFilter(Long userId, Integer priority, String keyword,
                                         LocalDateTime startDate, LocalDateTime endDate) {
         String tableName = getTaskTableName(userId);
@@ -151,8 +154,8 @@ public class EventItemRepository {
 
         if (keyword != null && !keyword.trim().isEmpty()) {
             sql.append(" AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ?)");
-            params.add("%" + keyword + "%");
-            params.add("%" + keyword + "%");
+            params.add("%" + keyword.toLowerCase() + "%");
+            params.add("%" + keyword.toLowerCase() + "%");
         }
 
         if (startDate != null && endDate != null) {
@@ -161,7 +164,6 @@ public class EventItemRepository {
             params.add(endDate);
         }
 
-        // 添加排序
         sql.append(" ORDER BY priority DESC, end_date ASC");
 
         return jdbcTemplate.query(sql.toString(), eventItemRowMapper, params.toArray());

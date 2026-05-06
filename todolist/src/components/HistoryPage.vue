@@ -53,11 +53,24 @@
                 <div class="task-stats">
                     <div class="stat-item">
                         <span class="stat-label">耗时</span>
-                        <span class="stat-value">{{ calculateDuration(task.start, task.end) }}</span>
+                        <span class="stat-value">
+                            {{ calculateDuration(task.start, task.completedAt, task.end) }}
+                        </span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">完成于</span>
-                        <span class="stat-value">{{ task.completedAt || formatDate(task.end) || '未知' }}</span>
+                        <span class="stat-value">
+                            <template v-if="task.completedAt">
+                                {{ formatDate(task.completedAt) }}
+                            </template>
+                            <template v-else-if="task.end">
+                                {{ formatDate(task.end) }}
+                                <span style="color:#999; font-size:11px;">(计划)</span>
+                            </template>
+                            <template v-else>
+                                未知
+                            </template>
+                        </span>
                     </div>
                 </div>
                 
@@ -115,14 +128,34 @@ const formatDate = (dateStr) => {
 };
 
 // 计算任务耗时
-const calculateDuration = (start, end) => {
-    if (!start || !end) return '未知';
+const calculateDuration = (start, completedAt, end) => {
+    if (!start) return '未知';
+    
+    // 获取有效的结束时间
+    let endTime = null;
+    
+    // 对于已完成的任务，优先使用实际完成时间
+    if (completedAt) {
+        endTime = completedAt;
+        console.log('使用实际完成时间:', endTime);
+    } else if (end) {
+        // 降级使用计划结束时间（兼容旧数据）
+        endTime = end;
+        console.log('使用计划结束时间:', endTime);
+    } else {
+        return '未知';
+    }
     
     const startDate = new Date(start.replace(' ', 'T'));
-    const endDate = new Date(end.replace(' ', 'T'));
+    const endDate = new Date(endTime.replace(' ', 'T'));
     const diffMs = endDate - startDate;
     
-    if (diffMs <= 0) return '0分钟';
+    // 如果实际完成时间早于开始时间（数据异常）
+    if (diffMs < 0) {
+        return '数据异常';
+    }
+    
+    if (diffMs === 0) return '0分钟';
     
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
@@ -307,6 +340,15 @@ const fetchAllTasks = async () => {
             for (const task of tasks) {
                 task.attachments = await loadAttachments(task.id);
             }
+            
+            // 详细打印每个任务的完成信息
+            tasks.forEach(task => {
+                console.log(`任务: ${task.title}`);
+                console.log(`  completed: ${task.completed}`);
+                console.log(`  completedAt: ${task.completedAt}`);
+                console.log(`  end: ${task.end}`);
+                console.log('---');
+            });
             
             allTasks.value = tasks;
             initChart();

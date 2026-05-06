@@ -64,13 +64,35 @@ public class Server {
         if (task == null) {
             return Result.fail(404, "任务不存在");
         }
+
+        // 记录更新前的完成状态
+        Boolean wasCompleted = task.getCompleted() != null && task.getCompleted();
+
+        // 更新基本字段
         if (updateTask.getTitle() != null) task.setTitle(updateTask.getTitle());
         if (updateTask.getDescription() != null) task.setDescription(updateTask.getDescription());
         if (updateTask.getPriority() != null) task.setPriority(updateTask.getPriority());
         if (updateTask.getStart() != null) task.setStart(updateTask.getStart());
         if (updateTask.getEnd() != null) task.setEnd(updateTask.getEnd());
         if (updateTask.getType() != null) task.setType(updateTask.getType());
-        if (updateTask.getCompleted() != null) task.setCompleted(updateTask.getCompleted());
+
+        // ========== 处理完成状态和完成时间 ==========
+        Boolean isNowCompleted = updateTask.getCompleted();
+        if (isNowCompleted != null) {
+            task.setCompleted(isNowCompleted);
+
+            // 从未完成变为完成时，记录完成时间
+            if (isNowCompleted && !wasCompleted) {
+                task.setCompletedAt(LocalDateTime.now());
+                System.out.println("任务 " + id + " 标记为完成，记录完成时间: " + LocalDateTime.now());
+            }
+            // 从完成变为未完成时，清除完成时间
+            else if (!isNowCompleted && wasCompleted) {
+                task.setCompletedAt(null);
+                System.out.println("任务 " + id + " 标记为未完成，清除完成时间");
+            }
+        }
+
         EventItem saved = eventItemRepository.update(userId, task);
         return Result.success(saved);
     }
