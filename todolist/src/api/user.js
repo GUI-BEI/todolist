@@ -1,3 +1,5 @@
+// api/user.js
+
 import http from './http';
 
 // ========== 用户相关 ==========
@@ -44,15 +46,9 @@ export const resetPassword = (username, securityAnswer, newPassword) => {
   return http.post('/user/reset-password', { username, securityAnswer, newPassword });
 };
 
-// ========== 头像相关 ==========
-
-// 上传头像
-export const uploadAvatar = (file) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  return http.post('/user/avatar', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  });
+// 验证密保答案
+export const verifySecurityAnswer = (username, securityAnswer) => {
+  console.log('调用验证接口:', '/api/user/verify-security');
+  console.log('请求参数:', { username, securityAnswer });
+  return http.post('/user/verify-security', { username, securityAnswer });
 };

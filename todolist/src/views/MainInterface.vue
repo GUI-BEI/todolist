@@ -250,7 +250,7 @@ const goToPreviousWeek = () => {
   newDate.setDate(newDate.getDate() - 7);
   currentStartDate.value = newDate;
   updateSchedulerStartDate();
-  // 不需要重新 fetch，直接重新渲染
+  // 不需要重新 fetch，直接重新渲染现有任务
   renderScheduler(currentTasks.value);
 };
 
@@ -450,11 +450,9 @@ const renderScheduler = (tasks) => {
   }));
 
   const events = tasks.map(task => {
-    // 确保日期格式正确
     let startDate = task.start;
     let endDate = task.end;
     
-    // 如果日期包含空格，转换为 T
     if (startDate && startDate.includes(' ')) {
       startDate = startDate.replace(' ', 'T');
     }
@@ -1054,26 +1052,17 @@ const fetchTasks = async () => {
     let result;
     const params = {};
     
+    // 优先级筛选
     if (currentFilter.value !== 'all') {
       params.priority = currentFilter.value;
     }
+    
+    // 关键词搜索
     if (searchKeyword.value.trim()) {
       params.keyword = searchKeyword.value.trim();
     }
     
-    // 保留日期范围（DayPilot 需要），但扩大范围
-    if (currentStartDate.value) {
-      const startDate = new Date(currentStartDate.value);
-      // 开始日期提前一天
-      startDate.setDate(startDate.getDate() - 1);
-      
-      const endDate = new Date(currentStartDate.value);
-      endDate.setDate(endDate.getDate() + 7); // 多覆盖一天
-      
-      params.startDate = startDate.toISOString().split('T')[0] + 'T00:00:00';
-      params.endDate = endDate.toISOString().split('T')[0] + 'T23:59:59';
-    }
-    
+    // 不添加时间范围限制，获取所有任务
     result = await getFilteredTasks(params);
     
     if (result.code === 200) {
@@ -1083,12 +1072,8 @@ const fetchTasks = async () => {
         end: task.end ? task.end.replace(' ', 'T') : null
       }));
 
-      // 【调试】输出任务数据，看是否正确
-      console.log('获取到的任务数据:', JSON.stringify(currentTasks.value, null, 2));
+      console.log('获取到的任务数量:', currentTasks.value.length);
       
-      // 【调试】检查栅格是否挂载
-      console.log('schedulerRef 元素:', schedulerRef.value);
-
       renderScheduler(currentTasks.value);
     }
   } catch (err) {
@@ -1120,8 +1105,12 @@ onMounted(() => {
     return;
   }
 
+  // 设置当前周起始日期（周一）
   currentStartDate.value = getMondayOfCurrentWeek();
+  
+  // 配置 scheduler 的初始视图
   schedulerConfig.value.startDate = new DayPilot.Date(currentStartDate.value, true);
+  schedulerConfig.value.days = 7; // 固定显示7天（一周）
 
   window.addEventListener('resize', handleResize);
 

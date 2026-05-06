@@ -3,6 +3,8 @@ package com.example.demo;
 import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -13,6 +15,7 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -360,6 +363,25 @@ public class Server {
         String hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt());
         user.setPassword(hashedPassword);
         userRepository.save(user);
+
+        return Result.success(null);
+    }
+
+    // 验证密保答案（不修改密码）
+    public Result<Void> verifySecurityAnswer(String username, String securityAnswer) {
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            return Result.fail(404, "用户名不存在");
+        }
+
+        User user = userOpt.get();
+        if (user.getSecurityAnswer() == null || user.getSecurityAnswer().isEmpty()) {
+            return Result.fail(400, "该用户未设置密保问题");
+        }
+
+        if (!user.getSecurityAnswer().equals(securityAnswer)) {
+            return Result.fail(401, "密保答案错误");
+        }
 
         return Result.success(null);
     }

@@ -5,15 +5,19 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api")
 public class TaskController {
     private final Server server;
+    private final UserRepository userRepository;
 
-    public TaskController(Server server) {
+    public TaskController(Server server, UserRepository userRepository) {
         this.server = server;
+        this.userRepository = userRepository;
     }
 
     // ========== 任务相关（保持不变）==========
@@ -187,6 +191,14 @@ public class TaskController {
     @PostMapping("/user/reset-password")
     public Result<Void> resetPassword(@RequestBody ResetPasswordDTO request) {
         return server.resetPassword(request.getUsername(), request.getSecurityAnswer(), request.getNewPassword());
+    }
+
+    // 验证密保答案（不修改密码）
+    @PostMapping("/user/verify-security")
+    public Result<Void> verifySecurityAnswer(@RequestBody Map<String, String> request) {
+        String username = request.get("username");
+        String securityAnswer = request.get("securityAnswer");
+        return server.verifySecurityAnswer(username, securityAnswer);
     }
 
     // ========== 标签管理相关 ==========

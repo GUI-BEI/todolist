@@ -13,9 +13,11 @@
         {{ isDarkMode ? '☀' : '☽' }}
       </button>
 
+      <!-- 未登录：显示登录按钮 -->
       <router-link v-if="!isLoggedIn" to="/login" class="login-link">登录</router-link>
       
-      <div v-else class="user-info" @click="router.push('/settings')">
+      <!-- 已登录：显示用户信息 -->
+      <div v-else class="user-info" @click="goToSettings">
         <div class="avatar-small">
           <img v-if="avatarUrl" :src="getFullAvatarUrl(avatarUrl)" alt="头像">
           <span v-else class="avatar-small-placeholder">{{ usernameInitial }}</span>
@@ -42,11 +44,21 @@ const username = ref('');
 const avatarUrl = ref('');
 const isDarkMode = ref(false);
 
+// 添加：判断是否已登录（使用 ref 而不是 computed，以便手动更新）
+const isLoggedIn = ref(false);
 
-// 添加：判断是否已登录
-const isLoggedIn = computed(() => {
-  return !!localStorage.getItem('token');
-});
+// 检查登录状态
+const checkLoginStatus = () => {
+  const token = localStorage.getItem('token');
+  isLoggedIn.value = !!token;
+  console.log('登录状态检查:', isLoggedIn.value, 'token:', token);
+  return isLoggedIn.value;
+};
+
+// 跳转到设置页面的方法
+const goToSettings = () => {
+  router.push('/settings');
+};
 
 // 切换黑夜模式
 const toggleDarkMode = () => {
@@ -80,60 +92,107 @@ const usernameInitial = computed(() => {
 
 const fetchUserInfo = async () => {
   const token = localStorage.getItem('token');
-  if (!token) return;
+  console.log('fetchUserInfo - token:', token);
+  
+  if (!token) {
+    console.log('无token，跳过获取用户信息');
+    isLoggedIn.value = false;
+    return;
+  }
   
   try {
     const result = await getUserInfo();
+    console.log('getUserInfo 返回:', result);
+    
     if (result.code === 200) {
       username.value = result.data.username;
       avatarUrl.value = result.data.avatarUrl || '';
+      isLoggedIn.value = true;
+      console.log('用户信息获取成功:', username.value, avatarUrl.value);
+    } else {
+      // token 无效，清除登录状态
+      console.log('获取用户信息失败，清除token');
+      localStorage.removeItem('token');
+      isLoggedIn.value = false;
     }
   } catch (err) {
     console.error('获取用户信息失败', err);
+    isLoggedIn.value = false;
   }
 };
 
 const handleUserInfoUpdate = () => {
+  console.log('收到 userLoggedIn 事件，刷新用户信息');
   fetchUserInfo();
 };
 
-// 核心：监听 localStorage 变化
-window.addEventListener('storage', (e) => {
+// 监听 localStorage 变化
+const handleStorageChange = (e) => {
+  console.log('storage 事件:', e.key, e.newValue);
   if (e.key === 'avatarUpdated') {
-    // 头像更新了，重新获取用户信息
     fetchUserInfo();
   }
   if (e.key === 'token') {
-    isLoggedIn.value = !!e.newValue;
-    fetchUserInfo();
+    checkLoginStatus();
+    if (e.newValue) {
+      fetchUserInfo();
+    } else {
+      // token 被清除
+      username.value = '';
+      avatarUrl.value = '';
+      isLoggedIn.value = false;
+    }
   }
-});
+};
 
-// 备选：每秒检查一次（storage 事件在 Electron 同窗口可能不触发）
+// 定时检查（备用方案）
 let checkTimer;
 const startCheck = () => {
   checkTimer = setInterval(() => {
     const token = localStorage.getItem('token');
     if (!!token !== isLoggedIn.value) {
-      fetchUserInfo();
+      console.log('定时检查发现登录状态变化');
+      checkLoginStatus();
+      if (token) {
+        fetchUserInfo();
+      } else {
+        username.value = '';
+        avatarUrl.value = '';
+      }
     }
-  }, 1000);
+  }, 2000);
 };
 
-// 核心：监听自定义事件（同窗口内通信用）
-window.addEventListener('avatarChanged', () => {
+// 监听自定义事件
+const handleAvatarChanged = () => {
+  console.log('收到 avatarChanged 事件');
   fetchUserInfo();
-});
+};
 
 onMounted(() => {
-  loadDarkModePreference();  // 添加这行！
-  fetchUserInfo();
+  console.log('App.vue mounted');
+  loadDarkModePreference();
+  
+  // 先检查登录状态
+  checkLoginStatus();
+  
+  // 如果已登录，获取用户信息
+  if (isLoggedIn.value) {
+    fetchUserInfo();
+  }
+  
+  // 注册事件监听
   on('userLoggedIn', handleUserInfoUpdate);
+  window.addEventListener('avatarChanged', handleAvatarChanged);
+  window.addEventListener('storage', handleStorageChange);
+  
   startCheck();
 });
 
 onUnmounted(() => {
   off('userLoggedIn', handleUserInfoUpdate);
+  window.removeEventListener('avatarChanged', handleAvatarChanged);
+  window.removeEventListener('storage', handleStorageChange);
   clearInterval(checkTimer);
 });
 </script>
@@ -234,9 +293,9 @@ body.dark-mode {
   color: white !important;
 }
 
-/* 用户信息 */
+/* 用户信息 - 确保显示 */
 .user-info {
-  display: flex;
+  display: flex !important;
   align-items: center;
   gap: 8px;
   margin-left: auto;
@@ -256,6 +315,7 @@ body.dark-mode {
   border-radius: 50%;
   overflow: hidden;
   background: #e0e0e0;
+  flex-shrink: 0;
 }
 
 .avatar-small img {
@@ -280,6 +340,7 @@ body.dark-mode {
   font-size: 14px;
   font-weight: 500;
   color: #333;
+  white-space: nowrap;
 }
 
 /* 主内容区域 */

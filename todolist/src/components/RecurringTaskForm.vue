@@ -52,7 +52,7 @@
             <option value="4">第四周</option>
             <option value="5">最后一周</option>
           </select>
-          <select class="monthly-select" v-model="form.recurringDay">
+          <select class="monthly-select" v-model="form.recurringDayOfWeek">
             <option value="1">周一</option>
             <option value="2">周二</option>
             <option value="3">周三</option>
@@ -78,18 +78,10 @@
       <div class="inputBar">
         <span>结束日期</span>
         <input type="date" v-model="form.endDate">
+        <p class="field-hint">周期任务将生成到该日期为止</p>
       </div>
 
-      <div class="inputBar">
-        <span>提前生成周数</span>
-        <div class="weeks-group">
-          <input type="number" v-model.number="form.weeksToGenerate" min="1" max="12" class="weeks-input">
-          <span class="weeks-unit">周</span>
-        </div>
-        <p class="field-hint">将提前生成指定周数的周期任务</p>
-      </div>
-
-            <!-- 标签栏 -->
+      <!-- 标签栏 -->
       <div class="inputBar">
         <span>标签</span>
         <div class="tag-bar">
@@ -153,12 +145,11 @@ const form = reactive({
   recurringType: 'weekly',
   recurringDays: [1],
   recurringWeek: 1,
-  recurringDay: 1,
+  recurringDayOfWeek: 1,
   startTime: '09:00',
   endTime: '10:00',
   endDate: '',
-  weeksToGenerate: 4,
-  type: ''  // 标签/分类字段
+  type: ''
 });
 
 const tags = ref([]);
@@ -176,7 +167,7 @@ const fetchTags = async () => {
   }
 };
 
-// 选择标签（点击复制到分类栏）
+// 选择标签
 const selectTag = (tagName) => {
   form.type = tagName;
 };
@@ -191,6 +182,7 @@ const addNewTag = async () => {
     if (result.code === 200) {
       tags.value.push(result.data);
       newTagName.value = '';
+      showToast('标签添加成功');
     } else {
       showToast(result.message || '添加失败');
     }
@@ -202,16 +194,17 @@ const addNewTag = async () => {
 
 // 删除标签
 const removeTag = async (tagName) => {
-  if (!showConfirm(`确定要删除标签「${tagName}」吗？`)) return;
+  const confirmed = await showConfirm(`确定要删除标签「${tagName}」吗？`);
+  if (!confirmed) return;
   
   try {
     const result = await deleteTag(tagName);
     if (result.code === 200) {
       tags.value = tags.value.filter(t => t.tagName !== tagName);
-      // 如果当前分类是删除的标签，清空
       if (form.type === tagName) {
         form.type = '';
       }
+      showToast('删除成功');
     } else {
       showToast(result.message || '删除失败');
     }
@@ -221,60 +214,73 @@ const removeTag = async (tagName) => {
   }
 };
 
-// 计算某月的最后一周
-const isLastWeek = (date, weekOfMonth) => {
-  const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  const lastWeek = Math.ceil((lastDay.getDate() + new Date(date.getFullYear(), date.getMonth(), 1).getDay()) / 7);
-  return weekOfMonth === lastWeek;
+/**
+ * 获取指定月份中第N周星期W的具体日期
+ * @param year 年份
+ * @param month 月份 (0-11)
+ * @param weekOfMonth 第几周 (1-4 为第1-4周, 5 为最后一周)
+ * @param dayOfWeek 星期几 (1=周一, 7=周日)
+ * @returns Date对象，如果不存在则返回null
+ */
+const getDateByWeekAndDay = (year, month, weekOfMonth, dayOfWeek) => {
+  // 获取当月第一天
+  const firstDay = new Date(year, month, 1);
+  // 第一天是星期几（周一=1，周日=7）
+  let firstDayWeek = firstDay.getDay();
+  firstDayWeek = firstDayWeek === 0 ? 7 : firstDayWeek;
+  
+  // 当月总天数
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+  const totalDays = lastDayOfMonth.getDate();
+  
+  let targetDate = null;
+  
+  if (weekOfMonth === 5) {
+    // 最后一周：从月末往前推到目标星期几
+    let lastDayWeek = lastDayOfMonth.getDay();
+    lastDayWeek = lastDayWeek === 0 ? 7 : lastDayWeek;
+    let offset = dayOfWeek - lastDayWeek;
+    targetDate = new Date(year, month, totalDays + offset);
+  } else {
+    // 第N周：计算第N周周一的日期，再偏移到目标星期几
+    // 第1周的周一日期 = 1 + (1 - firstDayWeek)
+    let firstMondayOffset = (1 - firstDayWeek + 7) % 7;
+    let nthMonday = 1 + firstMondayOffset + (weekOfMonth - 1) * 7;
+    targetDate = new Date(year, month, nthMonday + (dayOfWeek - 1));
+  }
+  
+  // 验证日期是否还在当月
+  if (targetDate && targetDate.getMonth() !== month) {
+    return null;
+  }
+  
+  // 验证日期是否有效
+  if (targetDate && targetDate.getDate() > 0 && targetDate.getDate() <= totalDays) {
+    return targetDate;
+  }
+  
+  return null;
 };
 
-// 计算指定日期是当月的第几周
-const getWeekOfMonth = (date) => {
-  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
-  const firstDayWeek = firstDay.getDay();
-  const dayOfMonth = date.getDate();
-  let week = Math.ceil((dayOfMonth + firstDayWeek) / 7);
-  
-  const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  const lastWeek = Math.ceil((lastDay.getDate() + firstDayWeek) / 7);
-  if (week === lastWeek) week = 5;
-  
-  return week;
-};
-
-// 生成周期任务
+/**
+ * 生成周期任务
+ */
 const generateRecurringTasks = () => {
   const tasks = [];
   const endDate = new Date(form.endDate);
+  endDate.setHours(23, 59, 59, 999);
+  
   const startTime = form.startTime;
   const endTime = form.endTime;
-  const maxWeeks = form.weeksToGenerate;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   
-  let currentDate = new Date();
-  currentDate.setHours(0, 0, 0, 0);
-  let weeksGenerated = 0;
-  
-  while (currentDate <= endDate && weeksGenerated < maxWeeks) {
-    let shouldAdd = false;
+  if (form.recurringType === 'daily') {
+    // 每天重复：遍历每一天
+    let currentDate = new Date(today);
+    let maxDays = 365; // 最多一年，防止无限循环
     
-    if (form.recurringType === 'weekly') {
-      const currentWeekday = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
-      shouldAdd = form.recurringDays.includes(currentWeekday);
-    } else if (form.recurringType === 'monthly') {
-      const weekOfMonth = getWeekOfMonth(currentDate);
-      const targetWeek = form.recurringWeek === 5 ? 'last' : form.recurringWeek;
-      const currentWeekday = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
-      
-      if (targetWeek === 'last') {
-        shouldAdd = isLastWeek(currentDate, weekOfMonth) && currentWeekday === form.recurringDay;
-      } else {
-        shouldAdd = (weekOfMonth === targetWeek && currentWeekday === form.recurringDay);
-      }
-    } else if (form.recurringType === 'daily') {
-      shouldAdd = true;
-    }
-    
-    if (shouldAdd) {
+    while (currentDate <= endDate && maxDays-- > 0) {
       const startDateTime = new Date(currentDate);
       const [startHour, startMinute] = startTime.split(':');
       startDateTime.setHours(parseInt(startHour), parseInt(startMinute), 0);
@@ -289,16 +295,86 @@ const generateRecurringTasks = () => {
         priority: parseInt(form.priority),
         start: startDateTime.toISOString().replace('T', ' ').slice(0, 19),
         end: endDateTime.toISOString().replace('T', ' ').slice(0, 19),
-        type: form.type || ''  // 添加标签
+        type: form.type || ''
       });
+      
+      currentDate.setDate(currentDate.getDate() + 1);
     }
     
-    currentDate.setDate(currentDate.getDate() + 1);
+  } else if (form.recurringType === 'weekly') {
+    // 每周重复：遍历每一天
+    let currentDate = new Date(today);
+    let maxDays = 365;
     
-    if (currentDate.getDay() === 1 && form.recurringType === 'weekly') {
-      weeksGenerated++;
+    while (currentDate <= endDate && maxDays-- > 0) {
+      const currentWeekday = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
+      
+      if (form.recurringDays.includes(currentWeekday)) {
+        const startDateTime = new Date(currentDate);
+        const [startHour, startMinute] = startTime.split(':');
+        startDateTime.setHours(parseInt(startHour), parseInt(startMinute), 0);
+        
+        const endDateTime = new Date(currentDate);
+        const [endHour, endMinute] = endTime.split(':');
+        endDateTime.setHours(parseInt(endHour), parseInt(endMinute), 0);
+        
+        tasks.push({
+          title: form.title,
+          description: form.description,
+          priority: parseInt(form.priority),
+          start: startDateTime.toISOString().replace('T', ' ').slice(0, 19),
+          end: endDateTime.toISOString().replace('T', ' ').slice(0, 19),
+          type: form.type || ''
+        });
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+  } else if (form.recurringType === 'monthly') {
+    // 每月重复：按月份遍历，计算每个月的目标日期
+    let currentYear = today.getFullYear();
+    let currentMonth = today.getMonth();
+    const endYear = endDate.getFullYear();
+    const endMonth = endDate.getMonth();
+    
+    // 最多循环24个月
+    let maxMonths = 24;
+    
+    while ((currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth)) && maxMonths-- > 0) {
+      // 计算本月的目标日期
+      const targetDate = getDateByWeekAndDay(currentYear, currentMonth, form.recurringWeek, form.recurringDayOfWeek);
+      
+      if (targetDate && targetDate <= endDate && targetDate >= today) {
+        const startDateTime = new Date(targetDate);
+        const [startHour, startMinute] = startTime.split(':');
+        startDateTime.setHours(parseInt(startHour), parseInt(startMinute), 0);
+        
+        const endDateTime = new Date(targetDate);
+        const [endHour, endMinute] = endTime.split(':');
+        endDateTime.setHours(parseInt(endHour), parseInt(endMinute), 0);
+        
+        tasks.push({
+          title: form.title,
+          description: form.description,
+          priority: parseInt(form.priority),
+          start: startDateTime.toISOString().replace('T', ' ').slice(0, 19),
+          end: endDateTime.toISOString().replace('T', ' ').slice(0, 19),
+          type: form.type || ''
+        });
+      }
+      
+      // 下一个月
+      currentMonth++;
+      if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+      }
     }
   }
+  
+  // 按开始时间排序
+  tasks.sort((a, b) => new Date(a.start) - new Date(b.start));
   
   return tasks;
 };
@@ -310,8 +386,14 @@ const submitRecurringTask = async () => {
     return;
   }
   
-  if (!form.title || !form.endDate) {
-    showToast('请填写完整信息');
+  // 表单验证
+  if (!form.title.trim()) {
+    showToast('请填写任务标题');
+    return;
+  }
+  
+  if (!form.endDate) {
+    showToast('请填写结束日期');
     return;
   }
   
@@ -324,20 +406,40 @@ const submitRecurringTask = async () => {
     showToast('请至少选择一个重复的星期');
     return;
   }
-
-  if (form.start && form.end) {
-    if (form.end <= form.start) {
-      showToast('结束时间必须晚于开始时间', true);
-      return;
-    }
+  
+  // 时间校验
+  const startTimeObj = new Date(`2000-01-01 ${form.startTime}`);
+  const endTimeObj = new Date(`2000-01-01 ${form.endTime}`);
+  if (endTimeObj <= startTimeObj) {
+    showToast('结束时间必须晚于开始时间', true);
+    return;
+  }
+  
+  // 检查结束日期是否有效
+  const endDateObj = new Date(form.endDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (endDateObj < today) {
+    showToast('结束日期不能早于今天', true);
+    return;
   }
   
   const tasks = generateRecurringTasks();
+  
+  console.log('生成的任务数量:', tasks.length);
+  if (tasks.length > 0) {
+    console.log('第一个任务:', tasks[0]);
+    console.log('最后一个任务:', tasks[tasks.length - 1]);
+  }
   
   if (tasks.length === 0) {
     showToast('没有生成任何任务，请检查结束日期和周期设置');
     return;
   }
+  
+  // 确认是否生成
+  const confirmed = await showConfirm(`即将生成 ${tasks.length} 个周期任务，确定要继续吗？`);
+  if (!confirmed) return;
   
   let successCount = 0;
   let failCount = 0;
@@ -349,9 +451,10 @@ const submitRecurringTask = async () => {
         successCount++;
       } else {
         failCount++;
+        console.error('添加失败:', result.message, task);
       }
     } catch (error) {
-      console.error('添加任务失败', error);
+      console.error('添加任务失败', error, task);
       failCount++;
     }
   }
@@ -448,10 +551,6 @@ body.dark-mode .field-hint {
   color: #888888;
 }
 
-body.dark-mode .weeks-unit {
-  color: #aaaaaa;
-}
-
 body.dark-mode .addBtn {
   background: #4a6fb8;
 }
@@ -469,8 +568,6 @@ body.dark-mode input[type="time"] {
 </style>
 
 <style scoped>
-/* 原有样式保持不变，添加标签栏样式 */
-
 .content-wrapper {
   background: rgb(255, 255, 255);
   min-height: 100%;
@@ -486,14 +583,6 @@ body.dark-mode input[type="time"] {
   max-width: 600px;
 }
 
-.form-title {
-  text-align: center;
-  color: #2c4c96;
-  margin-bottom: 30px;
-  font-size: 24px;
-  font-weight: 600;
-}
-
 .inputBar span {
   display: block;
   align-items: center;
@@ -507,7 +596,6 @@ body.dark-mode input[type="time"] {
 .inputBar input,
 .inputBar select {
   margin-top: 3px;
-  border: solid gray;
   background: transparent;
   padding: 15px 5px;
   font-size: 14px;
@@ -666,30 +754,11 @@ body.dark-mode input[type="time"] {
 .monthly-select {
   flex: 1;
   margin-top: 3px;
-  border: solid gray;
   background: rgb(240, 242, 249);
   padding: 12px 5px;
   font-size: 16px;
   border-radius: 0px 15px 15px 15px;
-  border-color: rgb(114, 130, 156);
-}
-
-/* 周数输入 */
-.weeks-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 3px;
-}
-
-.weeks-input {
-  width: 100px !important;
-  text-align: center;
-}
-
-.weeks-unit {
-  font-size: 16px;
-  color: #666;
+  border: 1px solid rgb(114, 130, 156);
 }
 
 .field-hint {
@@ -713,16 +782,12 @@ body.dark-mode input[type="time"] {
   transition: all 0.2s;
 }
 
-/* 激活状态的样式 */
 .addBtn:active {
-  border-color: rgb(106, 121, 145);
   background-color: rgba(220, 224, 234, 0.616);
 }
 
 .addBtn:hover {
-  background-color: #5c83d8;
-  color: white;
-  border-color: #5c83d8;
+  background-color: #456f9d;
 }
 
 input[type="date"],
